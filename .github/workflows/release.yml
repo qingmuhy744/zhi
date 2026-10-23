@@ -12,6 +12,10 @@ on:
 
 permissions:
   contents: write
+  # ci.yml's image job writes the Actions cache. A called workflow cannot
+  # request a permission the caller does not grant, and the tag run then
+  # dies at startup with no jobs.
+  actions: write
 
 concurrency:
   group: release-${{ inputs.tag || github.ref_name }}
