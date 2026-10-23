@@ -41,6 +41,24 @@ GET /:device_key/:group/:title/:body
   curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/运维/数据库提醒/备份完成"
   ```
 
+### 1.4 进阶参数 GET 示例
+```bash
+# 折叠覆盖：相同 collapse_key 更新同一条通知
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/构建进度/当前 85%?group=monitor&collapse_key=build_task"
+
+# 通知按钮。简写固定为 GET；竖线分隔，最多 3 个
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/上线审批/是否部署 v0.1.1?actions=同意部署:https://example.com/approve|拒绝:https://example.com/reject"
+
+# 频道广播。路径 key 以 topic_ 或 group_ 开头，且不少于 8 位
+curl "https://push.qingmuhy.com/topic_your_secret_key/团队告警/数据库连接池已达上限"
+
+# 大图只传 URL，手机自己下载。ttl 是 FCM 缓存秒数，不是 Zhi 服务器的存储时间
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/门禁抓拍/检测到异常移动?image=https://example.com/snap.jpg&ttl=300"
+
+# 系统通知兜底。后台由系统弹窗，点开后 App 再解密并写入历史
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/兜底告警/请点开查看?system_notify=1"
+```
+
 ---
 
 ## 2. 标准 POST 请求 (推荐后端/脚本调用)
@@ -73,7 +91,23 @@ curl -X POST "https://push.qingmuhy.com/push" \
     "body": "Zhi App v1.0.0 构建成功",
     "group": "CI/CD",
     "copy": "git log -1",
+    "image": "https://example.com/status.png",
+    "collapse_key": "sync_job",
+    "actions": "[{\"title\":\"重试\",\"url\":\"https://example.com/retry\",\"method\":\"POST\"}]",
+    "ttl": 3600,
     "level": "active"
+  }'
+```
+
+带 `topic` 时不再查设备表，直接向该频道发送。`topic` 与 `device_key` 同时存在时，以 `topic` 为准。频道名不少于 8 位。
+
+```bash
+curl -X POST "https://push.qingmuhy.com/push" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic": "topic_your_secret_key",
+    "title": "全员通知",
+    "body": "今晚十点机房维护"
   }'
 ```
 
@@ -131,22 +165,43 @@ curl -X POST "https://push.qingmuhy.com/push" \
 
 | 参数名 | 类型 | 说明 | 示例 |
 | :--- | :--- | :--- | :--- |
-| `device_key` | String | 设备唯一标识凭证（在 App 设置页查看） | `abcdef123456...` |
-| `body` | String | **必填**。通知正文内容 | `服务器备份已完成` |
-| `title` | String | 通知标题。缺省显示应用名称 `Zhi` | `运维通知` |
-| `group` / `category` | String | 通知分组。相同分组在 App 历史中支持分类筛选与渠道归类 | `生产环境`、`生活提醒` |
-| `copy` | String | 指定复制文本。若 App 开启「自动复制」，收到通知时会自动写入剪贴板；通知栏亦提供「复制内容」快捷按钮 | `668899` (验证码) |
-| `url` | String | 点击通知后自动跳转的网址或第三方 App URL Scheme | `https://github.com`、`weixin://` |
-| `level` | String | 通知时效级别：<br>• `active`: 常规通知 (默认)<br>• `timeSensitive`: 紧急/高时效通知，带悬浮横幅与红色标识<br>• `passive`: 静默低优先级通知 | `timeSensitive` |
-| `sound` | String | 通知铃声名称 | `default` |
-| `badge` | Int | 桌面角标数字 | `1` |
-| `isArchive` | Int | 是否归档到 App 本地历史数据库：<br>• `1`: 归档 (默认)<br>• `0`: 仅通知，不存历史 | `1` |
+| `device_key` | String | 设备凭证，在 App 设置页查看。路径上的 key 若以 `topic_` 或 `group_` 开头，会改按频道发送 | `abcdef123456...` |
+| `topic` | String | 频道名，至少 8 位。有该字段时不查设备表。App 生成的默认形态是 `topic_` 加 18 位小写字母和数字 | `topic_x9k2m1ab` |
+| `body` | String | 通知正文。与 `title`、`ciphertext` 至少要有一个 | `服务器备份已完成` |
+| `title` | String | 通知标题。缺省显示 `Zhi` | `运维通知` |
+| `group` / `category` | String | 分组。历史列表可按它筛选。`level` 不是 `timeSensitive` 且分组非空时，通知进入「分组: 名字」渠道 | `生产环境` |
+| `image` | String | 图片 URL。手机下载后用 Big Picture 展示，失败则只显示文本。服务端只转发这个字符串，不接收图片文件 | `https://example.com/snap.jpg` |
+| `collapse_key` | String | 折叠 key。客户端用它的哈希作为通知 ID，同 key 的新通知盖住旧的；同时传给 FCM 的 `collapse_key` | `ci_build_42` |
+| `actions` | String | 最多 3 个按钮，URL 必须是 `http` 或 `https`。简写 `标题:https://...\|标题:https://...` 固定 GET。JSON：`[{"title":"同意","url":"https://...","method":"POST"}]` | 见左 |
+| `ttl` | Int | 交给 FCM 的存活秒数，例如 `300`。超时仍离线则不再投递。`0` 表示当前不在线就丢弃。不传则用 FCM 默认缓存（最长约 4 周） | `300` |
+| `system_notify` | Int | 不传或 `0`：只发高优先级 Data。`1`：额外附带系统通知块。加密消息的系统弹窗正文固定为「收到一条端到端加密消息」，点开后才在本地解密入库 | `0` |
+| `copy` | String | 复制文本。通知上会多一个复制按钮；App 开启自动复制时还会写入剪贴板 | `668899` |
+| `url` | String | 点击通知或「打开链接」时打开的地址 | `https://github.com` |
+| `level` | String | `active` 走常规或分组渠道。`timeSensitive` 走「紧急重要通知」渠道。`passive` 只把兼容优先级标低；Android 8 及以上仍按渠道重要性响铃，没有单独的静默渠道 | `timeSensitive` |
+| `isArchive` | Int | `1` 写入本地历史（默认），`0` 只通知不入库 | `1` |
+| `ciphertext` | String | 方案 C 的 AES-GCM 密文。有密文时，公网网关看不到标题和正文 | 见第 3 节 |
+| `iv` | String | 可选。自定义 IV，与 `ciphertext` 一起交给客户端解密 |  |
+| `sound` | String | 会写入历史记录。系统通知铃声跟随通知渠道，不按这个字段更换 | `default` |
+| `badge` | Int | 会写入历史记录。当前版本不修改桌面角标 | `1` |
+| `icon` | String | 会写入历史记录。通知小图标固定为应用图标 |  |
+
+Data 载荷上限是 FCM 的 4KB。图片、长日志不要塞进正文，图片用 `image` URL。
+
+### 4.1 什么时候走频道，什么时候走单设备
+
+1. 请求里有 `topic`，或路径 key 以 `topic_` / `group_` 开头：调用 FCM Topic 发送。服务端不保存订阅名单，订阅发生在手机上的 Firebase。
+2. 否则按 `device_key` 查库，把库里的 FCM Token 用于单播。
+3. 同一个 `device_key` 再次注册会覆盖原来的 FCM Token。后登记的那台手机会收到之后的单播，先登记的那台不再收到。
+
+频道名没有单独的发送密钥。知道名字的人就能向该频道发推送，所以要用 App 生成的长随机名，不要用 `server-error` 这类明文。
+
+`system_notify=1` 时，FCM 通知块使用的渠道 ID 是 `zhi_urgent`、`zhi_group_分组名` 或 `zhi_default`。App 自己创建的常规和紧急渠道 ID 是 `zhi_channel_default`、`zhi_channel_urgent`，只有分组前缀 `zhi_group_` 相同。兜底弹窗因此不一定落进 App 里已经建好的渠道。默认的纯 Data 消息不受这个差异影响。
 
 ---
 
-## 4. 服务端管理与注册接口
+## 5. 服务端管理与注册接口
 
-### 4.1 设备注册 /:register
+### 5.1 设备注册 /register
 由 Zhi 客户端自动调用，将用户的 `device_key` 与 `fcm_token` 绑定：
 - **Method**: `POST /register`
 - **Request Body**:
@@ -171,7 +226,7 @@ curl -X POST "https://push.qingmuhy.com/push" \
 }
 ```
 
-### 4.2 服务健康检查 /ping
+### 5.2 服务健康检查 /ping
 - **Method**: `GET /ping`
 - **Response**:
 ```json
@@ -182,7 +237,7 @@ curl -X POST "https://push.qingmuhy.com/push" \
 }
 ```
 
-### 4.3 服务运行信息 /info
+### 5.3 服务运行信息 /info
 - **Method**: `GET /info`
 - **Response**:
 ```json
@@ -201,7 +256,7 @@ curl -X POST "https://push.qingmuhy.com/push" \
 
 ---
 
-## 5. 常见调用代码示例
+## 6. 常见调用代码示例
 
 ### Python
 ```python

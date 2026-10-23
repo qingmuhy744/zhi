@@ -21,6 +21,7 @@ import (
 // Pusher defines the interface for pushing notifications
 type Pusher interface {
 	Send(ctx context.Context, fcmToken string, req *model.PushRequest) error
+	SendTopic(ctx context.Context, topic string, req *model.PushRequest) error
 	IsConfigured() bool
 }
 
@@ -90,19 +91,30 @@ func (p *FCMPusher) IsConfigured() bool {
 	return !p.isMock && p.projectID != ""
 }
 
-// Send sends notification to FCM
+// Send sends notification to a single FCM device token
 func (p *FCMPusher) Send(ctx context.Context, fcmToken string, req *model.PushRequest) error {
 	if fcmToken == "" {
 		return fmt.Errorf("empty fcm token")
 	}
+	return p.dispatch(ctx, "token", fcmToken, req)
+}
 
+// SendTopic sends notification to an FCM topic
+func (p *FCMPusher) SendTopic(ctx context.Context, topic string, req *model.PushRequest) error {
+	if topic == "" {
+		return fmt.Errorf("empty topic")
+	}
+	return p.dispatch(ctx, "topic", topic, req)
+}
+
+func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, req *model.PushRequest) error {
 	if p.isMock {
 		if req.Ciphertext != "" {
-			log.Printf("[MOCK PUSH - E2EE] Would send to FCM token [%s...]: Ciphertext='%s...' (Length=%d)",
-				fcmToken[:min(len(fcmToken), 10)], req.Ciphertext[:min(len(req.Ciphertext), 16)], len(req.Ciphertext))
+			log.Printf("[MOCK PUSH - E2EE] Would send to FCM %s [%s]: Ciphertext='%s...' (Length=%d)",
+				targetKey, targetVal, req.Ciphertext[:min(len(req.Ciphertext), 16)], len(req.Ciphertext))
 		} else {
-			log.Printf("[MOCK PUSH] Would send to FCM token [%s...]: Title='%s', Body='%s', Group='%s'",
-				fcmToken[:min(len(fcmToken), 10)], req.Title, req.Body, req.GetEffectiveGroup())
+			log.Printf("[MOCK PUSH] Would send to FCM %s [%s]: Title='%s', Body='%s', Group='%s', Image='%s', TTL=%v",
+				targetKey, targetVal, req.Title, req.Body, req.GetEffectiveGroup(), req.Image, req.TTL)
 		}
 		return nil
 	}
@@ -124,12 +136,19 @@ func (p *FCMPusher) Send(ctx context.Context, fcmToken string, req *model.PushRe
 		"body":      req.Body,
 		"group":     req.GetEffectiveGroup(),
 		"icon":      req.Icon,
+		"image":     req.Image,
 		"sound":     req.Sound,
 		"url":       req.URL,
 		"copy":      req.Copy,
 		"badge":     strconv.Itoa(req.Badge),
 		"level":     req.Level,
 		"timestamp": strconv.FormatInt(time.Now().UnixMilli(), 10),
+	}
+	if req.CollapseKey != "" {
+		dataPayload["collapse_key"] = req.CollapseKey
+	}
+	if req.Actions != "" {
+		dataPayload["actions"] = req.Actions
 	}
 	if req.IsArchive != nil {
 		dataPayload["isArchive"] = strconv.Itoa(*req.IsArchive)
@@ -141,40 +160,62 @@ func (p *FCMPusher) Send(ctx context.Context, fcmToken string, req *model.PushRe
 		dataPayload["iv"] = req.IV
 	}
 
-	// Channel ID matching group or level
-	channelID := "zhi_default"
-	if req.Level == "timeSensitive" {
-		channelID = "zhi_urgent"
-	} else if req.GetEffectiveGroup() != "" {
-		channelID = "zhi_group_" + req.GetEffectiveGroup()
+	androidConfig := map[string]interface{}{
+		"priority": "HIGH",
+	}
+	if req.CollapseKey != "" {
+		androidConfig["collapse_key"] = req.CollapseKey
+	}
+	if req.TTL != nil && *req.TTL >= 0 {
+		androidConfig["ttl"] = fmt.Sprintf("%ds", *req.TTL)
 	}
 
-	notificationTitle := title
-	notificationBody := req.Body
-	if req.Ciphertext != "" {
-		if req.Title == "" {
-			notificationTitle = "Zhi"
+	msgPayload := map[string]interface{}{
+		targetKey: targetVal,
+		"data":    dataPayload,
+		"android": androidConfig,
+	}
+
+	// Optional fallback: if system_notify=1 is explicitly requested, attach FCM system notification block
+	if req.SystemNotify != nil && *req.SystemNotify == 1 {
+		channelID := "zhi_default"
+		if req.Level == "timeSensitive" {
+			channelID = "zhi_urgent"
+		} else if req.GetEffectiveGroup() != "" {
+			channelID = "zhi_group_" + req.GetEffectiveGroup()
 		}
-		notificationBody = "收到一条端到端加密消息"
+
+		notificationTitle := title
+		notificationBody := req.Body
+		if req.Ciphertext != "" {
+			if req.Title == "" {
+				notificationTitle = "Zhi"
+			}
+			notificationBody = "收到一条端到端加密消息"
+		}
+
+		androidNotification := map[string]interface{}{
+			"channel_id":              channelID,
+			"sound":                   "default",
+			"default_vibrate_timings": true,
+		}
+		if req.Image != "" {
+			androidNotification["image"] = req.Image
+		}
+		androidConfig["notification"] = androidNotification
+
+		notificationMap := map[string]string{
+			"title": notificationTitle,
+			"body":  notificationBody,
+		}
+		if req.Image != "" {
+			notificationMap["image"] = req.Image
+		}
+		msgPayload["notification"] = notificationMap
 	}
 
 	fcmMsg := map[string]interface{}{
-		"message": map[string]interface{}{
-			"token": fcmToken,
-			"notification": map[string]string{
-				"title": notificationTitle,
-				"body":  notificationBody,
-			},
-			"data": dataPayload,
-			"android": map[string]interface{}{
-				"priority": "HIGH",
-				"notification": map[string]interface{}{
-					"channel_id": channelID,
-					"sound":      "default",
-					"default_vibrate_timings": true,
-				},
-			},
-		},
+		"message": msgPayload,
 	}
 
 	bodyBytes, err := json.Marshal(fcmMsg)
@@ -202,7 +243,7 @@ func (p *FCMPusher) Send(ctx context.Context, fcmToken string, req *model.PushRe
 		return fmt.Errorf("FCM server responded with %d: %s", resp.StatusCode, string(respBytes))
 	}
 
-	log.Printf("[INFO] FCM push succeeded for token [%s...]", fcmToken[:min(len(fcmToken), 10)])
+	log.Printf("[INFO] FCM push succeeded for %s [%s]", targetKey, targetVal)
 	return nil
 }
 

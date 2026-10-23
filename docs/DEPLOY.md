@@ -6,50 +6,68 @@ Zhi 服务端基于 Go 语言编写，采用纯 Go 内嵌式 SQLite，编译为�
 
 ## 方式一：Docker Compose 一键部署 (推荐)
 
-### 1. 准备目录与配置文件
-在服务器创建部署目录：
+### 1. 拿到服务端目录
+
+在要部署的机器上进入仓库的 `server/` 目录。镜像的构建上下文就是这个目录，`compose.yaml`、`Dockerfile` 和配置模板都在这里。
+
 ```bash
-mkdir -p /opt/zhi && cd /opt/zhi
+cd /path/to/zhi/server
 ```
 
-### 2. 编写 `docker-compose.yml`
-```yaml
-version: '3.8'
+### 2. 使用仓库里的 `compose.yaml`
 
+在 `server/` 目录启动。文件没有顶层 `version`，内容就是：
+
+```yaml
 services:
   zhi-server:
-    image: alpine:3.20
+    build: .
     container_name: zhi-server
-    restart: always
+    restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
       - ./data:/app/data
       - ./config.yaml:/app/config.yaml
       - ./firebase-service-account.json:/app/firebase-service-account.json
-      - ./zhi-server:/app/zhi-server:ro
-    working_dir: /app
-    entrypoint: ["/app/zhi-server", "-config", "config.yaml"]
+    environment:
+      - PORT=8080
+      - DATABASE_PATH=/app/data/zhi.db
+      - FCM_SERVICE_ACCOUNT_FILE=/app/firebase-service-account.json
 ```
 
-### 3. 配置 `config.yaml`
+`PORT`、`DATABASE_PATH`、`FCM_SERVICE_ACCOUNT_FILE` 会覆盖 `config.yaml` 里的同名项。镜像入口是 `/app/zhi-server -config config.yaml`。
+
+前面有 Nginx 或 Caddy 时，把端口改成 `127.0.0.1:8080:8080`，避免 8080 直接暴露在公网。
+
+### 3. 先放好两个挂载文件
+
+Compose 会绑定宿主机上的 `config.yaml` 和 `firebase-service-account.json`。文件不存在时，Docker 会建成目录，容器起不来。启动前执行：
+
+```bash
+cp config.example.yaml config.yaml
+mkdir -p data
+```
+
+按需要改 `config.yaml`：
+
 ```yaml
 port: "8080"
 database_path: "data/zhi.db"
 fcm_service_account: "firebase-service-account.json"
-default_server_url: "https://push.qingmuhy.com"  # 或您自建反向代理的独立域名
+default_server_url: "https://push.yourdomain.com"
 ```
+
+容器里实际使用的数据库路径和密钥路径以环境变量为准，分别是 `/app/data/zhi.db` 和 `/app/firebase-service-account.json`。
 
 ### 4. 放置 Firebase 密钥
-将从 Firebase 控制台下载的 Service Account 密钥保存为 `firebase-service-account.json`。
-（详见 [FIREBASE_SETUP.md](FIREBASE_SETUP.md)）
+
+把 Firebase 控制台下载的 Service Account 保存为 `server/firebase-service-account.json`。没有这个文件时，服务会以 MOCK 模式启动，接口能通，但不会真正发给 FCM。配置步骤见 [FIREBASE_SETUP.md](FIREBASE_SETUP.md)。
 
 ### 5. 启动服务
+
 ```bash
-docker compose up -d
-```
-查看运行状态：
-```bash
+docker compose up -d --build
 docker compose logs -f
 ```
 

@@ -26,6 +26,9 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: PushMessage): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMessages(messages: List<PushMessage>)
+
     @Update
     suspend fun updateMessage(message: PushMessage)
 
@@ -34,6 +37,18 @@ interface MessageDao {
 
     @Query("DELETE FROM messages")
     suspend fun clearAllMessages()
+
+    @Query("DELETE FROM messages WHERE `group` = :group")
+    suspend fun clearMessagesByGroup(group: String)
+
+    @Query("DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY receivedAt DESC LIMIT :keepCount)")
+    suspend fun retainRecentMessages(keepCount: Int)
+
+    @Query("DELETE FROM messages WHERE receivedAt < :cutoffTimestamp")
+    suspend fun deleteMessagesOlderThan(cutoffTimestamp: Long)
+
+    @Query("SELECT * FROM messages ORDER BY receivedAt ASC")
+    suspend fun getAllMessagesList(): List<PushMessage>
 
     @Query("UPDATE messages SET isRead = 1")
     suspend fun markAllAsRead()

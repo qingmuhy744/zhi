@@ -1,65 +1,67 @@
 package com.zhi.app.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.zhi.app.data.preferences.ThemeMode
 
+// WildString 荒原浅色体系（米白荒原）
 private val LightColorScheme = lightColorScheme(
-    primary = BluePrimary,
+    primary = WildOrange,
     onPrimary = Color.White,
-    primaryContainer = BlueBackground,
-    onPrimaryContainer = BlueDark,
-    secondary = PurpleTag,
+    primaryContainer = WildOrangeContainerLight,
+    onPrimaryContainer = Color(0xFF7A1E08),
+    secondary = WildOrange,
     onSecondary = Color.White,
-    background = Slate50,
-    surface = Color.White,
-    onSurface = Slate900,
-    surfaceVariant = Slate100,
-    onSurfaceVariant = Slate700,
-    outline = Slate200
+    background = WildRiceWhite,
+    surface = WildSurfaceLight,
+    surfaceContainer = WildContainerLight,
+    surfaceVariant = WildVariantLight,
+    onSurface = WildTextPrimaryLight,
+    onSurfaceVariant = WildTextSecondaryLight,
+    outline = WildBorderLight,
+    outlineVariant = Color(0xFFCCC7BC)
 )
 
+// WildString 荒原深色体系（曜石黑夜）
 private val DarkColorScheme = darkColorScheme(
-    primary = BlueLight,
-    onPrimary = Slate900,
-    primaryContainer = Slate800,
-    onPrimaryContainer = BlueLight,
-    secondary = PurpleLight,
-    onSecondary = Slate900,
-    background = Slate900,
-    surface = Slate800,
-    onSurface = Color.White,
-    surfaceVariant = Slate700,
-    onSurfaceVariant = Slate200,
-    outline = Slate700
+    primary = WildOrangeLight,
+    onPrimary = WildObsidian,
+    primaryContainer = WildOrangeContainerDark,
+    onPrimaryContainer = Color(0xFFFFDBCF),
+    secondary = WildOrangeLight,
+    onSecondary = WildObsidian,
+    background = WildObsidian,
+    surface = WildSurfaceDark,
+    surfaceContainer = WildContainerDark,
+    surfaceVariant = WildVariantDark,
+    onSurface = WildTextPrimaryDark,
+    onSurfaceVariant = WildTextSecondaryDark,
+    outline = WildBorderDark,
+    outlineVariant = Color(0xFF4A4B43)
 )
 
 @Composable
 fun ZhiTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    val isSystemDark = isSystemInDarkTheme()
+    val darkTheme = when (themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemDark
     }
+
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -67,7 +69,10 @@ fun ZhiTheme(
             val window = (view.context as? Activity)?.window
             if (window != null) {
                 window.statusBarColor = colorScheme.background.toArgb()
-                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+                window.navigationBarColor = colorScheme.background.toArgb()
+                val insetsController = WindowCompat.getInsetsController(window, view)
+                insetsController.isAppearanceLightStatusBars = !darkTheme
+                insetsController.isAppearanceLightNavigationBars = !darkTheme
             }
         }
     }

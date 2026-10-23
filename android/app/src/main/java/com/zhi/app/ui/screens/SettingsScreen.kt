@@ -6,8 +6,12 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,10 +30,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BrightnessAuto
+import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.OpenInNew
@@ -58,7 +67,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,6 +80,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zhi.app.data.preferences.ServerMode
+import com.zhi.app.data.preferences.ThemeMode
 import com.zhi.app.data.preferences.UserPreferences
 import com.zhi.app.ui.components.ServerStatusBadge
 import com.zhi.app.ui.theme.BluePrimary
@@ -86,6 +98,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
 
     val deviceKey by viewModel.deviceKey.collectAsState()
     val serverMode by viewModel.serverMode.collectAsState()
@@ -101,12 +114,49 @@ fun SettingsScreen(
     val isSyncing by viewModel.isSyncing.collectAsState()
     val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
     val updateInfo by viewModel.updateInfo.collectAsState()
+    val subscribedTopics by viewModel.subscribedTopics.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
 
     var showUpdateDialog by remember { mutableStateOf(false) }
     var customUrlInput by remember(customServerUrl) { mutableStateOf(customServerUrl) }
     var aesKeyInput by remember(aesKey) { mutableStateOf(aesKey) }
+    var topicInput by remember { mutableStateOf("") }
     var showRegenerateKeyDialog by remember { mutableStateOf(false) }
     var isTestingPing by remember { mutableStateOf(false) }
+
+    val exportFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.exportBackupJson { json ->
+                try {
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(json.toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(context, "备份文件已成功导出！", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "导出失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    val importFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val json = context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                if (!json.isNullOrBlank()) {
+                    viewModel.importBackupJson(json) { _, msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "读取备份文件失败: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -333,7 +383,7 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Text(text = "FCM Registration Token:", fontSize = 12.sp, color = Slate400)
+                Text(text = "FCM Registration Token:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Row(
@@ -349,7 +399,7 @@ fun SettingsScreen(
                         text = if (fcmToken.isEmpty()) "正在连接 Google FCM 服务..." else "${fcmToken.take(24)}...${fcmToken.takeLast(8)}",
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
-                        color = Slate700,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
 
@@ -362,7 +412,28 @@ fun SettingsScreen(
                             },
                             modifier = Modifier.size(24.dp)
                         ) {
-                            Icon(imageVector = Icons.Outlined.ContentCopy, contentDescription = "复制 Token", tint = Slate500, modifier = Modifier.size(14.dp))
+                            Icon(imageVector = Icons.Outlined.ContentCopy, contentDescription = "复制 Token", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                        }
+                    } else {
+                        IconButton(
+                            onClick = {
+                                com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                                    if (task.isSuccessful) {
+                                        val token = task.result
+                                        val p = com.zhi.app.data.preferences.UserPreferences(context)
+                                        coroutineScope.launch {
+                                            p.setFCMToken(token)
+                                            viewModel.syncToServer()
+                                        }
+                                        Toast.makeText(context, "已成功获取 FCM Token 并同步", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "获取失败: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(imageVector = Icons.Outlined.Refresh, contentDescription = "刷新 Token", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
@@ -387,6 +458,136 @@ fun SettingsScreen(
                         Icon(imageVector = Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("立即同步 Token 到服务器", fontSize = 14.sp)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 3. 群发与广播频道 (Topic Channels)
+        SectionTitle(icon = Icons.Outlined.Campaign, title = "群发广播频道 (Topic Channels)")
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "支持多台手机同时订阅同一个秘密频道。发送方只需推送一次，所有订阅该频道的设备同时响铃，无需维护多设备列表。",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = topicInput,
+                        onValueChange = { topicInput = it },
+                        placeholder = { Text("输入或生成频道 Secret (≥8位)", fontSize = 12.sp) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        singleLine = true
+                    )
+                    Button(
+                        onClick = {
+                            val t = topicInput.trim()
+                            if (t.isNotEmpty()) {
+                                viewModel.subscribeTopic(t) { ok, msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                    if (ok) topicInput = ""
+                                }
+                            }
+                        },
+                        enabled = topicInput.trim().length >= 8,
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("订阅", fontSize = 13.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        val newSecret = viewModel.generateTopicSecret()
+                        topicInput = newSecret
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Icon(imageVector = Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("随机生成高强度频道 Secret", fontSize = 12.sp)
+                }
+
+                if (subscribedTopics.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = Slate200)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(text = "已订阅的广播频道 (${subscribedTopics.size})：", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    subscribedTopics.forEach { topic ->
+                        val pushUrl = "$effectiveServerUrl/$topic/广播测试/大家都能收到这条消息！"
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = topic,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "点击右侧复制推送 URL",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Row {
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("Topic Push URL", pushUrl))
+                                        Toast.makeText(context, "已复制群发推送 URL", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Outlined.ContentCopy, contentDescription = "复制URL", tint = Slate500, modifier = Modifier.size(16.dp))
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = {
+                                        viewModel.unsubscribeTopic(topic) { _, msg ->
+                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Outlined.Delete, contentDescription = "退订", tint = RedDanger, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
                     }
                 }
             }
@@ -478,15 +679,48 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 5. 通知偏好设置
-        SectionTitle(icon = Icons.Outlined.Notifications, title = "通知首选项")
+        // 5. 通知与外观偏好设置
+        SectionTitle(icon = Icons.Outlined.Notifications, title = "外观与通知首选项")
         Spacer(modifier = Modifier.height(8.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
+                Text(text = "界面主题模式 (Theme Mode)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(text = "支持跟随系统、荒原米白（浅色）、曜石深邃黑（深色）", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ThemeModeChip(
+                        title = "跟随系统",
+                        icon = Icons.Outlined.BrightnessAuto,
+                        selected = themeMode == ThemeMode.SYSTEM,
+                        onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    ThemeModeChip(
+                        title = "米白浅色",
+                        icon = Icons.Outlined.LightMode,
+                        selected = themeMode == ThemeMode.LIGHT,
+                        onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    ThemeModeChip(
+                        title = "曜石深色",
+                        icon = Icons.Outlined.DarkMode,
+                        selected = themeMode == ThemeMode.DARK,
+                        onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                HorizontalDivider(color = Slate200, modifier = Modifier.padding(vertical = 14.dp))
+
                 // 自动复制
                 PreferenceSwitchRow(
                     title = "自动复制 (Auto Copy)",
@@ -537,6 +771,131 @@ fun SettingsScreen(
                         Text(text = "跳转至系统设置调整免打扰及悬浮横幅", fontSize = 12.sp, color = Slate400)
                     }
                     Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp))
+                }
+
+                HorizontalDivider(color = Slate200, modifier = Modifier.padding(vertical = 12.dp))
+
+                // 电池优化白名单（兼顾后台高优先级 Data 唤醒与端到端解密/大图/按钮）
+                val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                val isIgnoringBatteryOptimizations = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            try {
+                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                context.startActivity(fallback)
+                            }
+                        }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isIgnoringBatteryOptimizations) "后台省电白名单 (已开启无限制 ✅)" else "开启后台省电无限制白名单 (推荐)",
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = if (isIgnoringBatteryOptimizations) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "允许后台唤醒以保障锁屏状态下正常解密 E2EE、加载大图、展示交互按钮与落盘归档",
+                            fontSize = 12.sp,
+                            color = Slate400
+                        )
+                    }
+                    Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 6. 数据备份与迁移 (Backup & Restore)
+        SectionTitle(icon = Icons.Outlined.Sync, title = "数据备份与迁移 (Backup & Restore)")
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "支持将设备 Key、服务器地址、E2EE 密钥、已订阅频道以及全部历史推送消息打包导出为 JSON，方便换机或跨设备恢复。",
+                    fontSize = 12.sp,
+                    color = Slate400,
+                    lineHeight = 16.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            exportFileLauncher.launch("zhi-backup-${System.currentTimeMillis() / 1000}.json")
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("导出 JSON 文件", fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = {
+                            importFileLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("从文件导入恢复", fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.exportBackupJson { json ->
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("Zhi Backup JSON", json))
+                                Toast.makeText(context, "已复制备份 JSON 到剪贴板", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("复制备份到剪贴板", fontSize = 12.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val text = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
+                            if (text.isNullOrBlank()) {
+                                Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
+                            } else {
+                                viewModel.importBackupJson(text) { _, msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("从剪贴板恢复", fontSize = 12.sp)
+                    }
                 }
             }
         }
@@ -705,5 +1064,45 @@ private fun PreferenceSwitchRow(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = BluePrimary)
         )
+    }
+}
+
+@Composable
+private fun ThemeModeChip(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    androidx.compose.material3.Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = BorderStroke(
+            1.dp,
+            if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+        ),
+        modifier = modifier.height(44.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = title,
+                fontSize = 12.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }

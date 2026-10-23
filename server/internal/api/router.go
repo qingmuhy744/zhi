@@ -223,6 +223,9 @@ func (h *ServerHandler) enrichFromQueryParams(c *gin.Context, req *model.PushReq
 	if icon := c.Query("icon"); icon != "" {
 		req.Icon = icon
 	}
+	if img := c.Query("image"); img != "" {
+		req.Image = img
+	}
 	if sound := c.Query("sound"); sound != "" {
 		req.Sound = sound
 	}
@@ -231,6 +234,27 @@ func (h *ServerHandler) enrichFromQueryParams(c *gin.Context, req *model.PushReq
 	}
 	if cp := c.Query("copy"); cp != "" {
 		req.Copy = cp
+	}
+	if ck := c.Query("collapse_key"); ck != "" {
+		req.CollapseKey = ck
+	} else if ck2 := c.Query("collapseKey"); ck2 != "" {
+		req.CollapseKey = ck2
+	}
+	if ttlStr := c.Query("ttl"); ttlStr != "" {
+		if t, err := strconv.Atoi(ttlStr); err == nil {
+			req.TTL = &t
+		}
+	}
+	if top := c.Query("topic"); top != "" {
+		req.Topic = top
+	}
+	if act := c.Query("actions"); act != "" {
+		req.Actions = act
+	}
+	if sn := c.Query("system_notify"); sn != "" {
+		if s, err := strconv.Atoi(sn); err == nil {
+			req.SystemNotify = &s
+		}
 	}
 	if badgeStr := c.Query("badge"); badgeStr != "" {
 		if b, err := strconv.Atoi(badgeStr); err == nil {
@@ -254,10 +278,16 @@ func (h *ServerHandler) enrichFromQueryParams(c *gin.Context, req *model.PushReq
 }
 
 func (h *ServerHandler) executePush(c *gin.Context, req *model.PushRequest) {
-	if req.DeviceKey == "" {
+	// Check if this is a topic broadcast push
+	targetTopic := req.Topic
+	if targetTopic == "" && (strings.HasPrefix(req.DeviceKey, "topic_") || strings.HasPrefix(req.DeviceKey, "group_")) {
+		targetTopic = req.DeviceKey
+	}
+
+	if targetTopic == "" && req.DeviceKey == "" {
 		c.JSON(http.StatusBadRequest, model.CommonResponse{
 			Code:      400,
-			Message:   "device_key is required",
+			Message:   "device_key or topic secret is required",
 			Timestamp: time.Now().Unix(),
 		})
 		return
@@ -272,6 +302,35 @@ func (h *ServerHandler) executePush(c *gin.Context, req *model.PushRequest) {
 		return
 	}
 
+	// 1. Branch: Topic Broadcast
+	if targetTopic != "" {
+		if len(targetTopic) < 8 {
+			c.JSON(http.StatusBadRequest, model.CommonResponse{
+				Code:      400,
+				Message:   "Topic secret must be at least 8 characters long for security",
+				Timestamp: time.Now().Unix(),
+			})
+			return
+		}
+
+		if err := h.pusher.SendTopic(c.Request.Context(), targetTopic, req); err != nil {
+			c.JSON(http.StatusInternalServerError, model.CommonResponse{
+				Code:      500,
+				Message:   fmt.Sprintf("Failed to broadcast topic message: %v", err),
+				Timestamp: time.Now().Unix(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, model.CommonResponse{
+			Code:      200,
+			Message:   fmt.Sprintf("Topic broadcast succeeded for [%s]", targetTopic),
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+
+	// 2. Branch: Direct Device Push
 	device, err := h.store.GetDevice(req.DeviceKey)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.CommonResponse{
