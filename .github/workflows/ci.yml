@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      upload-apk:
+        description: Upload the CI release APK as an Actions artifact
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -83,6 +88,7 @@ jobs:
           ./gradlew assembleRelease --stacktrace
 
       - name: Upload release APK
+        if: ${{ inputs.upload-apk != false }}
         uses: actions/upload-artifact@v7
         with:
           name: zhi-app-release

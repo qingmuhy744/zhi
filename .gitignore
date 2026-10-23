@@ -23,3 +23,7 @@ server/data/
 
 # Secrets & Private credentials
 server/firebase-service-account.json
+.env
+.env.*
+*.jks
+*.keystore
