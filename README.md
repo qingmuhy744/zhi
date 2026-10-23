@@ -97,8 +97,8 @@ zhi/
 │   ├── internal/api/                # Gin 路由 (Bark 兼容端点)
 │   ├── internal/push/               # FCM HTTP v1 OAuth2 推送器
 │   ├── internal/storage/            # 纯 Go SQLite 存储设备映射
-│   ├── Dockerfile                   # Alpine 极小镜像构建
-│   ├── compose.yaml                 # 无 version 字段的 Compose 配置
+│   ├── Dockerfile                   # 发布镜像的构建文件，部署机不使用
+│   ├── compose.yaml                 # 拉取 GHCR 镜像，相对挂载数据、配置和密钥
 │   └── config.example.yaml          # 配置文件模板
 ├── docs/
 │   ├── API.md                       # Bark 兼容接口说明与多语言调用示例
@@ -200,9 +200,10 @@ cd server
 #### Docker Compose 部署
 ```bash
 cd server
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
-详细自建与 Nginx/Caddy 反代配置参见 [docs/DEPLOY.md](docs/DEPLOY.md)。
+镜像是 `ghcr.io/qingmuhy744/zhi-server:v0.1.2`。部署机器只拉取，不编译。数据、配置和 Firebase 密钥用相对路径挂在 `server/` 旁边。详细步骤和反代配置见 [docs/DEPLOY.md](docs/DEPLOY.md)。
 
 ---
 

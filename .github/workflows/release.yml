@@ -16,6 +16,7 @@ permissions:
   # request a permission the caller does not grant, and the tag run then
   # dies at startup with no jobs.
   actions: write
+  packages: write
 
 concurrency:
   group: release-${{ inputs.tag || github.ref_name }}
@@ -30,6 +31,16 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       upload-apk: false
+
+  push-image:
+    name: Publish Server Image
+    needs: verify
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
 
   build-server:
     name: Build Multi-arch Server Binaries
