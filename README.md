@@ -4,10 +4,19 @@
 > iOS 大佬有犬吠（Bark），下水道鼠鼠只能「吱」一声。  
 > 不敢高声语，恐惊天上人；收到请吱声，荒原见自由。
 
-[![Platform](https://img.shields.io/badge/Platform-Android-3DDC84.svg?style=flat&logo=android)](https://developer.android.com/)
+[![Release](https://img.shields.io/github/v/release/qingmuhy744/zhi?logo=github&color=5865F2)](https://github.com/qingmuhy744/zhi/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/qingmuhy744/zhi/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/qingmuhy744/zhi/actions)
+[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-3DDC84.svg?logo=android&logoColor=white)](https://developer.android.com/)
 [![Package](https://img.shields.io/badge/Package-com.zhi.app-blue.svg)](android/app)
-[![Server](https://img.shields.io/badge/Server-Go%201.23-00ADD8.svg?logo=go)](server/)
-[![Push Engine](https://img.shields.io/badge/Engine-FCM%20HTTP%20v1-FFCA28.svg?logo=firebase)](docs/FIREBASE_SETUP.md)
+[![API](https://img.shields.io/badge/API-Bark%20Compatible-007AFF.svg?logo=apple&logoColor=white)](docs/API.md)
+[![Security](https://img.shields.io/badge/Security-E2EE%20(AES--GCM)-e05d44.svg?logo=lock&logoColor=white)](docs/API.md#2-方案-c端到端加密-e2ee-防视奸)
+[![Daemon](https://img.shields.io/badge/Daemon-Zero%20Background-2ea44f.svg?logo=googleplay&logoColor=white)](docs/FIREBASE_SETUP.md)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.1-7F52FF.svg?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![UI](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4.svg?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![Design](https://img.shields.io/badge/Design-Material%203-7C4DFF.svg?logo=materialdesign&logoColor=white)](https://m3.material.io/)
+[![Server](https://img.shields.io/badge/Server-Go%201.23%2B-00ADD8.svg?logo=go&logoColor=white)](server/)
+[![Push Engine](https://img.shields.io/badge/Engine-FCM%20HTTP%20v1-FFCA28.svg?logo=firebase&logoColor=black)](docs/FIREBASE_SETUP.md)
+[![Memory](https://img.shields.io/badge/Memory-%3C20MB%20RAM-informational.svg?logo=docker&logoColor=white)](server/)
 [![Vibe](https://img.shields.io/badge/Vibe-Rock%20%26%20Wild-ff69b4.svg)](https://github.com/qingmuhy744/wildstring)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
