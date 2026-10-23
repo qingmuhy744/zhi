@@ -161,7 +161,8 @@ curl -X POST "$serverUrl/push" \
                 ParamRow("system_notify", "1: 附带系统级通知托管兜底；默认 0: 纯 Data 增强模式")
                 ParamRow("copy", "指定复制的内容，支持自动复制或通知栏按钮复制")
                 ParamRow("url", "点击通知时自动打开的网址或第三方 App URL Scheme")
-                ParamRow("level", "active (默认) / timeSensitive (紧急时效) / passive (静默)")
+                ParamRow("level", "active (默认) / timeSensitive (紧急时效) / passive (静默但可见)")
+                ParamRow("display", "1: 显示通知（默认）；0: 后台处理并归档，但不显示通知")
                 ParamRow("sound", "通知铃声名称")
                 ParamRow("isArchive", "1: 存储到本地历史 (默认); 0: 不归档")
             }

@@ -53,6 +53,7 @@ def main():
     parser.add_argument("--copy", default="", help="快捷/自动复制内容")
     parser.add_argument("--url", default="", help="跳转链接")
     parser.add_argument("--level", default="active", choices=["active", "timeSensitive", "passive"], help="时效级别")
+    parser.add_argument("--display", type=int, choices=[0, 1], default=1, help="1 显示通知；0 仅后台处理并按 isArchive 归档")
 
     args = parser.parse_args()
 
@@ -62,7 +63,8 @@ def main():
         "group": args.group,
         "copy": args.copy,
         "url": args.url,
-        "level": args.level
+        "level": args.level,
+        "display": args.display,
     }
 
     # 加密为密文
@@ -72,7 +74,10 @@ def main():
     post_url = f"{args.server.rstrip('/')}/push"
     body_data = {
         "device_key": args.key,
-        "ciphertext": ciphertext
+        "ciphertext": ciphertext,
+        # Keep display outside the ciphertext so the gateway can suppress
+        # an optional FCM system-notification fallback without decrypting.
+        "display": args.display
     }
 
     print(f"[*] 正在向 {post_url} 发送加密推送...")
