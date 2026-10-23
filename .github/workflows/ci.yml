@@ -24,7 +24,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: 'stable'
+          go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
 
       - name: Test and build Go Server
@@ -32,6 +32,26 @@ jobs:
           cd server
           go test ./...
           go build -v -o zhi-server .
+
+  image:
+    name: Build Server Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build image with cached dependency layers
+        uses: docker/build-push-action@v7
+        with:
+          context: server
+          push: false
+          tags: zhi-server:ci
+          cache-from: type=gha,scope=zhi-server
+          cache-to: type=gha,mode=max,scope=zhi-server
 
   android:
     name: Build Android APK
@@ -47,8 +67,11 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
+        with:
+          build-root-directory: android
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Build Android Debug APK
+      - name: Build Android release APK
         env:
           # Same empty signing variables the release job injects when no keystore secret exists.
           ANDROID_KEYSTORE_PASSWORD: ""
@@ -57,10 +80,10 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleRelease --stacktrace
 
-      - name: Upload Debug APK
+      - name: Upload release APK
         uses: actions/upload-artifact@v7
         with:
-          name: zhi-app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: zhi-app-release
+          path: android/app/build/outputs/apk/release/*.apk

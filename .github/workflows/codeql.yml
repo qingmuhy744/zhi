@@ -42,7 +42,7 @@ jobs:
       - if: matrix.language == 'go'
         uses: actions/setup-go@v7
         with:
-          go-version: 'stable'
+          go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
 
       - if: matrix.language == 'java-kotlin'
@@ -53,6 +53,9 @@ jobs:
 
       - if: matrix.language == 'java-kotlin'
         uses: gradle/actions/setup-gradle@v6
+        with:
+          build-root-directory: android
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
