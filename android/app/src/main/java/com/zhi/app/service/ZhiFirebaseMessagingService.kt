@@ -297,9 +297,6 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
             builder.setCategory(NotificationCompat.CATEGORY_ALARM)
         } else if (level == "passive") {
             builder.setPriority(NotificationCompat.PRIORITY_LOW)
-            builder.setSound(null)
-            builder.setVibrate(longArrayOf(0L))
-            builder.setDefaults(0)
         } else {
             builder.setPriority(NotificationCompat.PRIORITY_HIGH)
         }
