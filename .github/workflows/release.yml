@@ -117,6 +117,9 @@ jobs:
             fi
           else
             echo "No release keystore secret configured. Falling back to assembleDebug..."
+            # Missing secrets arrive as empty strings. Gradle treats a blank value as unset,
+            # and we drop them here so the debug fallback matches a clean local build.
+            unset ANDROID_KEYSTORE_PATH ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD
             cd android
             ./gradlew assembleDebug --no-daemon
             cd ..

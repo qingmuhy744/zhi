@@ -27,9 +27,10 @@ jobs:
           go-version: 'stable'
           cache-dependency-path: server/go.sum
 
-      - name: Build Go Server
+      - name: Test and build Go Server
         run: |
           cd server
+          go test ./...
           go build -v -o zhi-server .
 
   android:
@@ -48,6 +49,11 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build Android Debug APK
+        env:
+          # Same empty signing variables the release job injects when no keystore secret exists.
+          ANDROID_KEYSTORE_PASSWORD: ""
+          ANDROID_KEY_ALIAS: ""
+          ANDROID_KEY_PASSWORD: ""
         run: |
           cd android
           chmod +x gradlew

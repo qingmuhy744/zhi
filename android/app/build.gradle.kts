@@ -24,8 +24,8 @@ android {
     }
 
     val signingValues = listOf("ANDROID_KEYSTORE_PATH", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD")
-        .map { providers.environmentVariable(it).orNull }
-    require(signingValues.all { it == null } || signingValues.all { !it.isNullOrBlank() }) {
+        .map { name -> providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() } }
+    require(signingValues.all { it == null } || signingValues.all { it != null }) {
         "Set all four ANDROID signing environment variables, or none"
     }
     if (signingValues.all { it != null }) signingConfigs.create("release") {
