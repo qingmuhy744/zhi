@@ -1,6 +1,7 @@
 services:
   zhi-server:
-    build: .
+    image: ghcr.io/qingmuhy744/zhi-server:v0.1.2
+    pull_policy: always
     container_name: zhi-server
     restart: unless-stopped
     ports:

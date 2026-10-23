@@ -4,24 +4,29 @@ Zhi 服务端基于 Go 语言编写，采用纯 Go 内嵌式 SQLite，编译为�
 
 ---
 
-## 方式一：Docker Compose 一键部署 (推荐)
+## 方式一：Docker Compose 拉取镜像 (推荐)
 
-### 1. 拿到服务端目录
+部署机器不编译。发布工作流把 `server/` 打成多架构镜像，推到 GHCR。当前版本是 `ghcr.io/qingmuhy744/zhi-server:v0.1.2`，同一版本还有不带 `v` 的 `0.1.2`，没有预发布号的标签同时是 `latest`。镜像里只有程序，没有数据库，也没有 Firebase 密钥。
 
-在要部署的机器上进入仓库的 `server/` 目录。镜像的构建上下文就是这个目录，`compose.yaml`、`Dockerfile` 和配置模板都在这里。
+### 1. 准备一个目录
 
-```bash
-cd /path/to/zhi/server
+把下面三样放在同一个目录里，用相对路径挂载，整个目录可以一起备份。不要把密钥放进 git 仓库。
+
+```text
+zhi/
+├── compose.yaml
+├── config.yaml
+├── firebase-service-account.json
+└── data/
 ```
 
-### 2. 使用仓库里的 `compose.yaml`
-
-在 `server/` 目录启动。文件没有顶层 `version`，内容就是：
+`compose.yaml` 没有顶层 `version`，内容就是：
 
 ```yaml
 services:
   zhi-server:
-    build: .
+    image: ghcr.io/qingmuhy744/zhi-server:v0.1.2
+    pull_policy: always
     container_name: zhi-server
     restart: unless-stopped
     ports:
@@ -36,13 +41,13 @@ services:
       - FCM_SERVICE_ACCOUNT_FILE=/app/firebase-service-account.json
 ```
 
-`PORT`、`DATABASE_PATH`、`FCM_SERVICE_ACCOUNT_FILE` 会覆盖 `config.yaml` 里的同名项。镜像入口是 `/app/zhi-server -config config.yaml`。
+仓库里的 `server/compose.yaml` 与这里相同。`PORT`、`DATABASE_PATH`、`FCM_SERVICE_ACCOUNT_FILE` 会覆盖 `config.yaml` 里的同名项。镜像入口是 `/app/zhi-server -config config.yaml`。
 
 前面有 Nginx 或 Caddy 时，把端口改成 `127.0.0.1:8080:8080`，避免 8080 直接暴露在公网。
 
-### 3. 先放好两个挂载文件
+### 2. 先放好两个挂载文件
 
-Compose 会绑定宿主机上的 `config.yaml` 和 `firebase-service-account.json`。文件不存在时，Docker 会建成目录，容器起不来。启动前执行：
+Compose 会绑定宿主机上的 `config.yaml` 和 `firebase-service-account.json`。文件不存在时，Docker 会建成目录，容器起不来。`config.yaml` 可以从仓库的 `server/config.example.yaml` 复制：
 
 ```bash
 cp config.example.yaml config.yaml
@@ -60,16 +65,19 @@ default_server_url: "https://push.yourdomain.com"
 
 容器里实际使用的数据库路径和密钥路径以环境变量为准，分别是 `/app/data/zhi.db` 和 `/app/firebase-service-account.json`。
 
-### 4. 放置 Firebase 密钥
+### 3. 放置 Firebase 密钥
 
-把 Firebase 控制台下载的 Service Account 保存为 `server/firebase-service-account.json`。没有这个文件时，服务会以 MOCK 模式启动，接口能通，但不会真正发给 FCM。配置步骤见 [FIREBASE_SETUP.md](FIREBASE_SETUP.md)。
+把 Firebase 控制台下载的 Service Account 保存为同一目录下的 `firebase-service-account.json`。没有这个文件时，服务会以 MOCK 模式启动，接口能通，但不会真正发给 FCM。配置步骤见 [FIREBASE_SETUP.md](FIREBASE_SETUP.md)。
 
-### 5. 启动服务
+### 4. 拉取并启动
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 docker compose logs -f
 ```
+
+升级时改 `compose.yaml` 里的镜像标签，再执行同样的两条命令。数据库在 `./data`，密钥和配置在旁边，升级不会替换它们。
 
 ---
 
