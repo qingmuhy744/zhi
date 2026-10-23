@@ -6,6 +6,14 @@ Zhi 服务端提供与 iOS Bark 完全兼容的 HTTP 推送接口，支持通过
 
 ## 1. 快速开始 (推送接口)
 
+直接打开网关根路径返回一段纯文本，大约 300 字节，没有 HTML 和 JSON：
+
+```bash
+curl https://push.qingmuhy.com/
+```
+
+正文里有 GitHub、README、接口文档和部署文档的地址，以及 `GET /:device_key/:body` 和 `POST /push` 两行调用形式。
+
 > **服务网关地址**：
 > - **官方公共网关（开箱即用，免搭建）**：`https://push.qingmuhy.com`
 > - **自建私有服务**：`http://localhost:8080`（或您反向代理的独立域名）

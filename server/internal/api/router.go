@@ -41,6 +41,7 @@ func SetupRouter(h *ServerHandler) *gin.Engine {
 	})
 
 	// Base endpoints
+	r.GET("/", handleIndex)
 	r.GET("/ping", h.handlePing)
 	r.GET("/info", h.handleInfo)
 	r.POST("/register", h.handleRegister)
@@ -58,6 +59,24 @@ func SetupRouter(h *ServerHandler) *gin.Engine {
 	r.GET("/:key/:param1/:param2/:param3", h.handleKeyGet3)
 
 	return r
+}
+
+// indexBody is the fixed plain-text page for GET /. No HTML and no JSON.
+var indexBody = []byte(`Zhi / 吱
+Android Bark-compatible push.
+安卓 Bark 兼容推送。
+
+GitHub  https://github.com/qingmuhy744/zhi
+README  https://github.com/qingmuhy744/zhi/blob/main/README.md
+API     https://github.com/qingmuhy744/zhi/blob/main/docs/API.md
+Deploy  https://github.com/qingmuhy744/zhi/blob/main/docs/DEPLOY.md
+
+GET /:device_key/:body
+POST /push
+`)
+
+func handleIndex(c *gin.Context) {
+	c.Data(http.StatusOK, "text/plain; charset=utf-8", indexBody)
 }
 
 func (h *ServerHandler) handlePing(c *gin.Context) {
