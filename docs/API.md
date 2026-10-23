@@ -65,6 +65,12 @@ curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/门禁抓拍/检测到异常移�
 
 # 系统通知兜底。后台由系统弹窗，点开后 App 再解密并写入历史
 curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/兜底告警/请点开查看?system_notify=1"
+
+# 静默但可见：进入静默通知渠道，不响铃、不震动
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/后台同步完成?level=passive"
+
+# 后台处理：手机归档消息但不显示通知，也不自动复制
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/后台心跳?display=0&isArchive=1"
 ```
 
 ---
@@ -177,7 +183,7 @@ curl -X POST "https://push.qingmuhy.com/push" \
 | `topic` | String | 频道名，至少 8 位。有该字段时不查设备表。App 生成的默认形态是 `topic_` 加 18 位小写字母和数字 | `topic_x9k2m1ab` |
 | `body` | String | 通知正文。与 `title`、`ciphertext` 至少要有一个 | `服务器备份已完成` |
 | `title` | String | 通知标题。缺省显示 `Zhi` | `运维通知` |
-| `group` / `category` | String | 分组。历史列表可按它筛选。`level` 不是 `timeSensitive` 且分组非空时，通知进入「分组: 名字」渠道 | `生产环境` |
+| `group` / `category` | String | 分组。历史列表可按它筛选。普通 `active` 消息进入「分组: 名字」渠道；`passive` 统一进入静默渠道 | `生产环境` |
 | `image` | String | 图片 URL。手机下载后用 Big Picture 展示，失败则只显示文本。服务端只转发这个字符串，不接收图片文件 | `https://example.com/snap.jpg` |
 | `collapse_key` | String | 折叠 key。客户端用它的哈希作为通知 ID，同 key 的新通知盖住旧的；同时传给 FCM 的 `collapse_key` | `ci_build_42` |
 | `actions` | String | 最多 3 个按钮，URL 必须是 `http` 或 `https`。简写 `标题:https://...\|标题:https://...` 固定 GET。JSON：`[{"title":"同意","url":"https://...","method":"POST"}]` | 见左 |
@@ -185,7 +191,8 @@ curl -X POST "https://push.qingmuhy.com/push" \
 | `system_notify` | Int | 不传或 `0`：只发高优先级 Data。`1`：额外附带系统通知块。加密消息的系统弹窗正文固定为「收到一条端到端加密消息」，点开后才在本地解密入库 | `0` |
 | `copy` | String | 复制文本。通知上会多一个复制按钮；App 开启自动复制时还会写入剪贴板 | `668899` |
 | `url` | String | 点击通知或「打开链接」时打开的地址 | `https://github.com` |
-| `level` | String | `active` 走常规或分组渠道。`timeSensitive` 走「紧急重要通知」渠道。`passive` 只把兼容优先级标低；Android 8 及以上仍按渠道重要性响铃，没有单独的静默渠道 | `timeSensitive` |
+| `level` | String | 可选，默认 `active`。`active` 走常规或分组渠道；`timeSensitive` 走紧急渠道；`passive` 走静默但可见渠道，不响铃、不震动 | `passive` |
+| `display` | Int | 可选，默认 `1`。`1` 显示通知；`0` 仅后台处理并按 `isArchive` 归档，不显示通知，也不触发自动复制 | `0` |
 | `isArchive` | Int | `1` 写入本地历史（默认），`0` 只通知不入库 | `1` |
 | `ciphertext` | String | 方案 C 的 AES-GCM 密文。有密文时，公网网关看不到标题和正文 | 见第 3 节 |
 | `iv` | String | 可选。自定义 IV，与 `ciphertext` 一起交给客户端解密 |  |
@@ -203,7 +210,7 @@ Data 载荷上限是 FCM 的 4KB。图片、长日志不要塞进正文，图片
 
 频道名没有单独的发送密钥。知道名字的人就能向该频道发推送，所以要用 App 生成的长随机名，不要用 `server-error` 这类明文。
 
-`system_notify=1` 时，FCM 通知块使用的渠道 ID 是 `zhi_urgent`、`zhi_group_分组名` 或 `zhi_default`。App 自己创建的常规和紧急渠道 ID 是 `zhi_channel_default`、`zhi_channel_urgent`，只有分组前缀 `zhi_group_` 相同。兜底弹窗因此不一定落进 App 里已经建好的渠道。默认的纯 Data 消息不受这个差异影响。
+`system_notify=1` 时，FCM 通知块使用 App 对应的 `zhi_channel_urgent`、`zhi_group_分组名`、`zhi_channel_passive_v2` 或 `zhi_channel_default` 渠道。`display=0` 会强制不附带系统通知块。Android 8+ 的渠道声音和重要性由系统设置控制。
 
 ---
 

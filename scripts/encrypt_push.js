@@ -26,20 +26,24 @@ function encryptGCM(payloadObj, aesKey) {
   return combined.toString('base64');
 }
 
-async function sendPush({ server, deviceKey, aesKey, title, body, group, copy, url, level }) {
+async function sendPush({ server, deviceKey, aesKey, title, body, group, copy, url, level, display = 1 }) {
   const payload = {
     title: title || '加密消息',
     body: body || '测试内容',
     group: group || '私密',
     copy: copy || '',
     url: url || '',
-    level: level || 'active'
+    level: level || 'active',
+    display
   };
 
   const ciphertext = encryptGCM(payload, aesKey);
   const postData = JSON.stringify({
     device_key: deviceKey,
-    ciphertext: ciphertext
+    ciphertext: ciphertext,
+    // Keep display outside the ciphertext so the gateway can suppress
+    // an optional FCM system-notification fallback without decrypting.
+    display
   });
 
   const parsedUrl = new URL(`${server.replace(/\/+$/, '')}/push`);
@@ -75,11 +79,11 @@ async function sendPush({ server, deviceKey, aesKey, title, body, group, copy, u
   });
 }
 
-// 命令行直接调用支持: node encrypt_push.js <server> <deviceKey> <aesKey> <title> <body>
+// 命令行直接调用支持: node encrypt_push.js <server> <deviceKey> <aesKey> <title> <body> [display]
 if (require.main === module) {
   const args = process.argv.slice(2);
   if (args.length < 5) {
-    console.log("用法: node encrypt_push.js <serverUrl> <deviceKey> <aesKey> <title> <body>");
+    console.log("用法: node encrypt_push.js <serverUrl> <deviceKey> <aesKey> <title> <body> [display]");
     console.log("示例: node encrypt_push.js https://push.qingmuhy.com my_key my_password '告警' '数据库离线'");
     process.exit(1);
   }
@@ -89,7 +93,8 @@ if (require.main === module) {
     deviceKey: args[1],
     aesKey: args[2],
     title: args[3],
-    body: args[4]
+    body: args[4],
+    display: args[5] === undefined ? 1 : Number(args[5])
   }).catch(err => {
     console.error("[-] 推送失败:", err);
     process.exit(1);

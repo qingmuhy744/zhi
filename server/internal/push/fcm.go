@@ -153,6 +153,9 @@ func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, r
 	if req.IsArchive != nil {
 		dataPayload["isArchive"] = strconv.Itoa(*req.IsArchive)
 	}
+	if req.Display != nil {
+		dataPayload["display"] = strconv.Itoa(*req.Display)
+	}
 	if req.Ciphertext != "" {
 		dataPayload["ciphertext"] = req.Ciphertext
 	}
@@ -177,10 +180,12 @@ func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, r
 	}
 
 	// Optional fallback: if system_notify=1 is explicitly requested, attach FCM system notification block
-	if req.SystemNotify != nil && *req.SystemNotify == 1 {
-		channelID := "zhi_default"
-		if req.Level == "timeSensitive" {
-			channelID = "zhi_urgent"
+	if (req.Display == nil || *req.Display != 0) && req.SystemNotify != nil && *req.SystemNotify == 1 {
+		channelID := "zhi_channel_default"
+		if req.Level == "passive" {
+			channelID = "zhi_channel_passive_v2"
+		} else if req.Level == "timeSensitive" {
+			channelID = "zhi_channel_urgent"
 		} else if req.GetEffectiveGroup() != "" {
 			channelID = "zhi_group_" + req.GetEffectiveGroup()
 		}
@@ -196,8 +201,10 @@ func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, r
 
 		androidNotification := map[string]interface{}{
 			"channel_id":              channelID,
-			"sound":                   "default",
-			"default_vibrate_timings": true,
+		}
+		if req.Level != "passive" {
+			androidNotification["sound"] = "default"
+			androidNotification["default_vibrate_timings"] = true
 		}
 		if req.Image != "" {
 			androidNotification["image"] = req.Image

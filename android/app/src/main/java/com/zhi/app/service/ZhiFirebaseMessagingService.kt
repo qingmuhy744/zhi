@@ -38,6 +38,7 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
 
         const val CHANNEL_DEFAULT = "zhi_channel_default"
         const val CHANNEL_URGENT = "zhi_channel_urgent"
+        const val CHANNEL_PASSIVE = "zhi_channel_passive_v2"
         const val CHANNEL_GROUP_PREFIX = "zhi_group_"
     }
 
@@ -89,6 +90,7 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
             var collapseKey = data["collapse_key"] ?: data["collapseKey"] ?: ""
             var actionsRaw = data["actions"] ?: ""
             var isArchive = data["isArchive"] != "0"
+            var display = data["display"]?.toIntOrNull() ?: 1
 
             // Scheme C: Check for ciphertext (End-to-End Encryption)
             val ciphertext = data["ciphertext"]
@@ -117,6 +119,7 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                             if (json.has("collapse_key")) collapseKey = json.optString("collapse_key", collapseKey)
                             if (json.has("actions")) actionsRaw = json.optString("actions", actionsRaw)
                             if (json.has("isArchive")) isArchive = json.optInt("isArchive", 1) != 0
+                            if (json.has("display")) display = json.optInt("display", display)
                         } catch (_: Exception) {
                             // If not JSON, treat decrypted string as plain body
                             body = decrypted
@@ -130,8 +133,8 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                 }
             }
 
-            // Handle auto-copy if enabled
-            if (copy.isNotEmpty()) {
+            // Handle auto-copy if enabled. Background-only messages must not create UI side effects.
+            if (display != 0 && copy.isNotEmpty()) {
                 val autoCopy = prefs.autoCopyFlow.first()
                 if (autoCopy) {
                     Handler(Looper.getMainLooper()).post {
@@ -168,8 +171,10 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                 db.messageDao().insertMessage(message)
             }
 
-            // Show system notification
-            showNotification(title, body, group, url, copy, level, image, collapseKey, actionsRaw)
+            // display=0 is a background-only delivery: process and optionally archive, but do not post a notification.
+            if (display != 0) {
+                showNotification(title, body, group, url, copy, level, image, collapseKey, actionsRaw)
+            }
         }
     }
 
@@ -376,6 +381,23 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                     nm.createNotificationChannel(channel)
                 }
                 CHANNEL_URGENT
+            }
+            level == "passive" -> {
+                if (nm.getNotificationChannel(CHANNEL_PASSIVE) == null) {
+                    val channel = NotificationChannel(
+                        CHANNEL_PASSIVE,
+                        "静默通知",
+                        NotificationManager.IMPORTANCE_LOW
+                    ).apply {
+                        description = "不响铃、不震动的通知"
+                        setSound(null, null)
+                        enableVibration(false)
+                        enableLights(false)
+                        setShowBadge(false)
+                    }
+                    nm.createNotificationChannel(channel)
+                }
+                CHANNEL_PASSIVE
             }
             group.isNotEmpty() -> {
                 val channelId = "$CHANNEL_GROUP_PREFIX$group"

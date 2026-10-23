@@ -40,7 +40,19 @@ class ZhiApp : Application() {
                 lightColor = Color.RED
             }
 
-            nm.createNotificationChannels(listOf(defaultChannel, urgentChannel))
+            val passiveChannel = NotificationChannel(
+                ZhiFirebaseMessagingService.CHANNEL_PASSIVE,
+                "静默通知",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "不响铃、不震动的通知"
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
+                setShowBadge(false)
+            }
+
+            nm.createNotificationChannels(listOf(defaultChannel, urgentChannel, passiveChannel))
         }
     }
 }
