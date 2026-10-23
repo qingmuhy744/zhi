@@ -5,14 +5,12 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 object CryptoUtils {
 
     private const val AES_GCM_TAG_LENGTH = 128
     private const val GCM_IV_LENGTH = 12
-    private const val CBC_IV_LENGTH = 16
 
     /**
      * Generates a 32-character random alphanumeric AES key
@@ -58,12 +56,11 @@ object CryptoUtils {
     }
 
     /**
-     * Decrypts ciphertext (supporting both AES-GCM and AES-CBC).
+     * Decrypts ciphertext using AES-256-GCM (AEAD authenticated decryption).
+     * Eliminates padding oracle attacks inherent to legacy CBC modes.
      * Automatically attempts:
-     * 1. AES-256-GCM with prepended 12-byte IV
-     * 2. AES-256-GCM with separate IV parameter
-     * 3. AES-256-CBC with prepended 16-byte IV
-     * 4. AES-256-CBC with separate IV parameter or zero IV
+     * 1. AES-256-GCM with separate IV parameter if supplied
+     * 2. AES-256-GCM with prepended 12-byte IV (default Zhi wire format)
      */
     fun decrypt(ciphertextBase64: String, keyPassphrase: String, customIv: String? = null): String {
         val secretKey = deriveKey(keyPassphrase)
@@ -82,17 +79,9 @@ object CryptoUtils {
                 cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
                 return String(cipher.doFinal(data), Charsets.UTF_8)
             } catch (_: Exception) {}
-
-            // Try AES-CBC with custom IV
-            try {
-                val ivBytes = Base64.decode(customIv, Base64.DEFAULT)
-                val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-                cipher.init(Cipher.DECRYPT_MODE, secretKey, IvParameterSpec(ivBytes))
-                return String(cipher.doFinal(data), Charsets.UTF_8)
-            } catch (_: Exception) {}
         }
 
-        // 2. Try AES-GCM with prepended 12-byte IV
+        // 2. Try AES-GCM with prepended 12-byte IV (Zhi standard E2EE format)
         if (data.size > GCM_IV_LENGTH) {
             try {
                 val iv = ByteArray(GCM_IV_LENGTH)
@@ -104,31 +93,11 @@ object CryptoUtils {
                 val spec = GCMParameterSpec(AES_GCM_TAG_LENGTH, iv)
                 cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
                 return String(cipher.doFinal(encrypted), Charsets.UTF_8)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                throw IllegalArgumentException("GCM decryption failed: authentication tag verification or key mismatch", e)
+            }
         }
 
-        // 3. Try AES-CBC with prepended 16-byte IV
-        if (data.size > CBC_IV_LENGTH) {
-            try {
-                val iv = ByteArray(CBC_IV_LENGTH)
-                System.arraycopy(data, 0, iv, 0, CBC_IV_LENGTH)
-                val encrypted = ByteArray(data.size - CBC_IV_LENGTH)
-                System.arraycopy(data, CBC_IV_LENGTH, encrypted, 0, encrypted.size)
-
-                val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-                cipher.init(Cipher.DECRYPT_MODE, secretKey, IvParameterSpec(iv))
-                return String(cipher.doFinal(encrypted), Charsets.UTF_8)
-            } catch (_: Exception) {}
-        }
-
-        // 4. Try AES-CBC with zero IV (Bark fallback)
-        try {
-            val iv = ByteArray(CBC_IV_LENGTH)
-            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, IvParameterSpec(iv))
-            return String(cipher.doFinal(data), Charsets.UTF_8)
-        } catch (e: Exception) {
-            throw IllegalArgumentException("Decryption failed. Please verify the AES Key.", e)
-        }
+        throw IllegalArgumentException("Ciphertext data too short for AES-GCM")
     }
 }

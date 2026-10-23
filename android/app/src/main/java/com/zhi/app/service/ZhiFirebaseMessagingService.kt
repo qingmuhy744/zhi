@@ -227,10 +227,12 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
             builder.addAction(0, "复制: $copy", copyPendingIntent)
         }
 
-        // Add "打开链接" action button if url is provided
+        // Add "打开链接" action button if url is provided (using explicit Intent to prevent hijacking)
         if (url.isNotEmpty()) {
-            val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            val openUrlIntent = Intent(this, MainActivity::class.java).apply {
+                action = MainActivity.ACTION_OPEN_URL
+                putExtra(MainActivity.EXTRA_URL, url)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
             val openUrlPendingIntent = PendingIntent.getActivity(
                 this,

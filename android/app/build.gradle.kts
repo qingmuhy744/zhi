@@ -23,8 +23,21 @@ android {
         }
     }
 
+    val signingValues = listOf("ANDROID_KEYSTORE_PATH", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD")
+        .map { providers.environmentVariable(it).orNull }
+    require(signingValues.all { it == null } || signingValues.all { !it.isNullOrBlank() }) {
+        "Set all four ANDROID signing environment variables, or none"
+    }
+    if (signingValues.all { it != null }) signingConfigs.create("release") {
+        storeFile = file(signingValues[0]!!)
+        storePassword = signingValues[1]
+        keyAlias = signingValues[2]
+        keyPassword = signingValues[3]
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
