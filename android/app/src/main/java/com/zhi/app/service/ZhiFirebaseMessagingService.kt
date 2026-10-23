@@ -87,6 +87,7 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
             var badge = data["badge"]?.toIntOrNull() ?: 0
             var level = data["level"] ?: "active"
             var collapseKey = data["collapse_key"] ?: data["collapseKey"] ?: ""
+            var actionsRaw = data["actions"] ?: ""
             var isArchive = data["isArchive"] != "0"
 
             // Scheme C: Check for ciphertext (End-to-End Encryption)
@@ -107,11 +108,14 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                             if (json.has("body")) body = json.optString("body", body)
                             if (json.has("group")) group = json.optString("group", group)
                             if (json.has("icon")) icon = json.optString("icon", icon)
+                            if (json.has("image")) image = json.optString("image", image)
                             if (json.has("sound")) sound = json.optString("sound", sound)
                             if (json.has("url")) url = json.optString("url", url)
                             if (json.has("copy")) copy = json.optString("copy", copy)
                             if (json.has("badge")) badge = json.optInt("badge", badge)
                             if (json.has("level")) level = json.optString("level", level)
+                            if (json.has("collapse_key")) collapseKey = json.optString("collapse_key", collapseKey)
+                            if (json.has("actions")) actionsRaw = json.optString("actions", actionsRaw)
                             if (json.has("isArchive")) isArchive = json.optInt("isArchive", 1) != 0
                         } catch (_: Exception) {
                             // If not JSON, treat decrypted string as plain body
@@ -165,8 +169,49 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
             }
 
             // Show system notification
-            showNotification(title, body, group, url, copy, level, image, collapseKey)
+            showNotification(title, body, group, url, copy, level, image, collapseKey, actionsRaw)
         }
+    }
+
+    private data class WebhookActionSpec(
+        val title: String,
+        val url: String,
+        val method: String = "GET"
+    )
+
+    private fun parseWebhookActions(actionsRaw: String): List<WebhookActionSpec> {
+        val raw = actionsRaw.trim()
+        if (raw.isEmpty()) return emptyList()
+        val list = mutableListOf<WebhookActionSpec>()
+        if (raw.startsWith("[")) {
+            try {
+                val arr = org.json.JSONArray(raw)
+                for (i in 0 until minOf(arr.length(), 3)) {
+                    val obj = arr.optJSONObject(i) ?: continue
+                    val t = obj.optString("title").trim()
+                    val u = obj.optString("url").trim()
+                    val m = obj.optString("method", "GET").uppercase()
+                    if (t.isNotEmpty() && (u.startsWith("http://") || u.startsWith("https://"))) {
+                        list.add(WebhookActionSpec(t, u, m))
+                    }
+                }
+                return list
+            } catch (_: Exception) {
+                // fallback to shorthand below
+            }
+        }
+        // Shorthand: "同意部署:https://example.com/approve|拒绝:https://example.com/reject"
+        raw.split("|").take(3).forEach { segment ->
+            val idx = segment.indexOf(":http")
+            if (idx > 0) {
+                val t = segment.substring(0, idx).trim()
+                val u = segment.substring(idx + 1).trim()
+                if (t.isNotEmpty() && (u.startsWith("http://") || u.startsWith("https://"))) {
+                    list.add(WebhookActionSpec(t, u, "GET"))
+                }
+            }
+        }
+        return list
     }
 
     private fun showNotification(
@@ -177,7 +222,8 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
         copy: String,
         level: String,
         image: String = "",
-        collapseKey: String = ""
+        collapseKey: String = "",
+        actionsRaw: String = ""
     ) {
         val channelId = getOrCreateChannel(group, level)
         val notificationId = if (collapseKey.isNotEmpty()) {
@@ -279,6 +325,25 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             builder.addAction(0, "打开链接", openUrlPendingIntent)
+        }
+
+        // Add interactive Webhook callback action buttons
+        val webhookActions = parseWebhookActions(actionsRaw)
+        webhookActions.forEachIndexed { index, spec ->
+            val webhookIntent = Intent(this, NotificationActionReceiver::class.java).apply {
+                action = NotificationActionReceiver.ACTION_WEBHOOK
+                putExtra(NotificationActionReceiver.EXTRA_WEBHOOK_URL, spec.url)
+                putExtra(NotificationActionReceiver.EXTRA_WEBHOOK_TITLE, spec.title)
+                putExtra(NotificationActionReceiver.EXTRA_WEBHOOK_METHOD, spec.method)
+                putExtra(NotificationActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+            }
+            val webhookPendingIntent = PendingIntent.getBroadcast(
+                this,
+                notificationId + 10 + index,
+                webhookIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(0, spec.title, webhookPendingIntent)
         }
 
         try {

@@ -141,6 +141,16 @@ class UserPreferences(private val context: Context) {
         return newKey
     }
 
+    suspend fun setDeviceKey(key: String) {
+        val clean = key.trim()
+        if (clean.isNotEmpty()) {
+            context.dataStore.edit { prefs ->
+                prefs[KEY_DEVICE_KEY] = clean
+                prefs[KEY_IS_REGISTERED] = false
+            }
+        }
+    }
+
     suspend fun setServerMode(mode: ServerMode) {
         context.dataStore.edit { prefs ->
             prefs[KEY_SERVER_MODE] = mode.name

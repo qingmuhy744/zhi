@@ -147,6 +147,9 @@ func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, r
 	if req.CollapseKey != "" {
 		dataPayload["collapse_key"] = req.CollapseKey
 	}
+	if req.Actions != "" {
+		dataPayload["actions"] = req.Actions
+	}
 	if req.IsArchive != nil {
 		dataPayload["isArchive"] = strconv.Itoa(*req.IsArchive)
 	}
@@ -157,30 +160,8 @@ func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, r
 		dataPayload["iv"] = req.IV
 	}
 
-	// Channel ID matching group or level
-	channelID := "zhi_default"
-	if req.Level == "timeSensitive" {
-		channelID = "zhi_urgent"
-	} else if req.GetEffectiveGroup() != "" {
-		channelID = "zhi_group_" + req.GetEffectiveGroup()
-	}
-
-	notificationTitle := title
-	notificationBody := req.Body
-	if req.Ciphertext != "" {
-		if req.Title == "" {
-			notificationTitle = "Zhi"
-		}
-		notificationBody = "收到一条端到端加密消息"
-	}
-
 	androidConfig := map[string]interface{}{
 		"priority": "HIGH",
-		"notification": map[string]interface{}{
-			"channel_id":              channelID,
-			"sound":                   "default",
-			"default_vibrate_timings": true,
-		},
 	}
 	if req.CollapseKey != "" {
 		androidConfig["collapse_key"] = req.CollapseKey
@@ -188,24 +169,49 @@ func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, r
 	if req.TTL != nil && *req.TTL >= 0 {
 		androidConfig["ttl"] = fmt.Sprintf("%ds", *req.TTL)
 	}
-	if req.Image != "" {
-		androidNotification := androidConfig["notification"].(map[string]interface{})
-		androidNotification["image"] = req.Image
-	}
-
-	notificationMap := map[string]string{
-		"title": notificationTitle,
-		"body":  notificationBody,
-	}
-	if req.Image != "" {
-		notificationMap["image"] = req.Image
-	}
 
 	msgPayload := map[string]interface{}{
-		targetKey:      targetVal,
-		"notification": notificationMap,
-		"data":         dataPayload,
-		"android":      androidConfig,
+		targetKey: targetVal,
+		"data":    dataPayload,
+		"android": androidConfig,
+	}
+
+	// Optional fallback: if system_notify=1 is explicitly requested, attach FCM system notification block
+	if req.SystemNotify != nil && *req.SystemNotify == 1 {
+		channelID := "zhi_default"
+		if req.Level == "timeSensitive" {
+			channelID = "zhi_urgent"
+		} else if req.GetEffectiveGroup() != "" {
+			channelID = "zhi_group_" + req.GetEffectiveGroup()
+		}
+
+		notificationTitle := title
+		notificationBody := req.Body
+		if req.Ciphertext != "" {
+			if req.Title == "" {
+				notificationTitle = "Zhi"
+			}
+			notificationBody = "收到一条端到端加密消息"
+		}
+
+		androidNotification := map[string]interface{}{
+			"channel_id":              channelID,
+			"sound":                   "default",
+			"default_vibrate_timings": true,
+		}
+		if req.Image != "" {
+			androidNotification["image"] = req.Image
+		}
+		androidConfig["notification"] = androidNotification
+
+		notificationMap := map[string]string{
+			"title": notificationTitle,
+			"body":  notificationBody,
+		}
+		if req.Image != "" {
+			notificationMap["image"] = req.Image
+		}
+		msgPayload["notification"] = notificationMap
 	}
 
 	fcmMsg := map[string]interface{}{

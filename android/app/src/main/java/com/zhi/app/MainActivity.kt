@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermission()
         fetchFCMToken()
         handleOpenUrlIntent(intent)
+        handleFcmSystemTrayIntent(intent)
 
         setContent {
             val themeMode by viewModel.themeMode.collectAsState()
@@ -62,6 +63,43 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleOpenUrlIntent(intent)
+        handleFcmSystemTrayIntent(intent)
+    }
+
+    private fun handleFcmSystemTrayIntent(intent: Intent?) {
+        val extras = intent?.extras ?: return
+        // When system_notify=1 is used and app is in background, Android system tray puts data keys into Activity intent extras
+        val hasFcmId = extras.containsKey("google.message_id") || extras.containsKey("gcm.notification.body")
+        val body = extras.getString("body")
+        val ciphertext = extras.getString("ciphertext")
+        if (!hasFcmId && body.isNullOrEmpty() && ciphertext.isNullOrEmpty()) return
+
+        val title = extras.getString("title") ?: "Zhi"
+        val group = extras.getString("group") ?: extras.getString("category") ?: ""
+        val copy = extras.getString("copy") ?: ""
+        val url = extras.getString("url") ?: ""
+        val image = extras.getString("image") ?: ""
+        val level = extras.getString("level") ?: "active"
+        val collapseKey = extras.getString("collapse_key") ?: ""
+        val iv = extras.getString("iv")
+
+        // Remove key from intent so configuration change won't insert duplicate
+        intent.removeExtra("body")
+        intent.removeExtra("ciphertext")
+        intent.removeExtra("google.message_id")
+
+        viewModel.archiveFromSystemNotificationIntent(
+            title = title,
+            body = body ?: "",
+            group = group,
+            copy = copy,
+            url = url,
+            image = image,
+            level = level,
+            collapseKey = collapseKey,
+            ciphertext = ciphertext,
+            iv = iv
+        )
     }
 
     private fun handleOpenUrlIntent(intent: Intent?) {

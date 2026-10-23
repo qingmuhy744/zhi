@@ -107,9 +107,11 @@ jobs:
             cd android
             ./gradlew assembleRelease --no-daemon
             cd ..
-            cp android/app/build/outputs/apk/release/*.apk artifacts/android/
+            for apk in android/app/build/outputs/apk/release/*.apk; do
+              cp "$apk" "artifacts/android/Zhi-${RELEASE_TAG}.apk"
+            done
             if [ -n "$ANDROID_SIGNING_CERT_SHA256" ]; then
-              ACTUAL=$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs artifacts/android/*.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+              ACTUAL=$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "artifacts/android/Zhi-${RELEASE_TAG}.apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
               test "$ACTUAL" = "$ANDROID_SIGNING_CERT_SHA256"
               printf '%s\n' "$ACTUAL" > artifacts/android/android-signing-certificate.sha256
             fi
@@ -118,7 +120,7 @@ jobs:
             cd android
             ./gradlew assembleDebug --no-daemon
             cd ..
-            cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/android/zhi-app-debug.apk
+            cp android/app/build/outputs/apk/debug/app-debug.apk "artifacts/android/Zhi-${RELEASE_TAG}.apk"
           fi
 
       - name: Upload Android APK
@@ -159,7 +161,7 @@ jobs:
           轻量极简、纯粹克制的 Android Bark 兼容通知接收与推送工具。
 
           ### 📦 下载与安装
-          - Android 客户端：\`app-release.apk\` / \`zhi-app-debug.apk\`
+          - Android 客户端：\`Zhi-${RELEASE_TAG}.apk\`
           - 服务端静态独立二进制（纯 Go 无 CGO 依赖）：
             - Linux (x86_64): \`zhi-server-linux-amd64\`
             - Linux (ARM64): \`zhi-server-linux-arm64\`

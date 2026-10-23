@@ -31,7 +31,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val apiClient = ServerApiClient()
     private val updateManager = AppUpdateManager(application)
 
-    val currentVersionName = "0.1.0"
+    val currentVersionName = "0.1.1"
 
     private val _updateInfo = MutableStateFlow<UpdateInfo?>(null)
     val updateInfo: StateFlow<UpdateInfo?> = _updateInfo.asStateFlow()
@@ -141,6 +141,190 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearAllMessages() {
         viewModelScope.launch {
             dao.clearAllMessages()
+        }
+    }
+
+    fun clearMessagesByGroup(group: String) {
+        viewModelScope.launch {
+            dao.clearMessagesByGroup(group)
+        }
+    }
+
+    fun retainRecentMessages(keepCount: Int) {
+        viewModelScope.launch {
+            dao.retainRecentMessages(keepCount)
+        }
+    }
+
+    fun archiveFromSystemNotificationIntent(
+        title: String,
+        body: String,
+        group: String,
+        copy: String,
+        url: String,
+        image: String,
+        level: String,
+        collapseKey: String,
+        ciphertext: String?,
+        iv: String?
+    ) {
+        viewModelScope.launch {
+            var finalTitle = title
+            var finalBody = body
+            var finalGroup = group
+            var finalCopy = copy
+            var finalUrl = url
+            var finalImage = image
+            var finalLevel = level
+            if (!ciphertext.isNullOrEmpty()) {
+                val key = aesKey.value
+                if (key.isNotEmpty()) {
+                    try {
+                        val decrypted = com.zhi.app.util.CryptoUtils.decrypt(ciphertext, key, iv)
+                        try {
+                            val json = org.json.JSONObject(decrypted)
+                            finalTitle = json.optString("title", finalTitle)
+                            finalBody = json.optString("body", finalBody)
+                            finalGroup = json.optString("group", finalGroup)
+                            finalCopy = json.optString("copy", finalCopy)
+                            finalUrl = json.optString("url", finalUrl)
+                            finalImage = json.optString("image", finalImage)
+                            finalLevel = json.optString("level", finalLevel)
+                        } catch (_: Exception) {
+                            finalBody = decrypted
+                        }
+                    } catch (_: Exception) {
+                        finalTitle = "端到端消息解密失败"
+                        finalBody = "密钥不匹配或数据损坏。"
+                    }
+                }
+            }
+            val msg = PushMessage(
+                title = finalTitle,
+                body = finalBody,
+                group = finalGroup,
+                copy = finalCopy,
+                url = finalUrl,
+                image = finalImage,
+                level = finalLevel,
+                collapseKey = collapseKey,
+                isArchive = true,
+                receivedAt = System.currentTimeMillis()
+            )
+            dao.insertMessage(msg)
+        }
+    }
+
+    fun exportBackupJson(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val allMsgs = dao.getAllMessagesList()
+            val root = org.json.JSONObject()
+            root.put("version", currentVersionName)
+            root.put("exportedAt", System.currentTimeMillis())
+
+            val settingsObj = org.json.JSONObject()
+            settingsObj.put("deviceKey", deviceKey.value)
+            settingsObj.put("serverMode", serverMode.value.name)
+            settingsObj.put("customServerUrl", customServerUrl.value)
+            settingsObj.put("themeMode", themeMode.value.name)
+            settingsObj.put("autoCopy", autoCopy.value)
+            settingsObj.put("soundEnabled", soundEnabled.value)
+            settingsObj.put("vibrationEnabled", vibrationEnabled.value)
+            settingsObj.put("e2eeEnabled", e2eeEnabled.value)
+            settingsObj.put("aesKey", aesKey.value)
+            val topicsArr = org.json.JSONArray()
+            subscribedTopics.value.forEach { topicsArr.put(it) }
+            settingsObj.put("subscribedTopics", topicsArr)
+            root.put("settings", settingsObj)
+
+            val msgsArr = org.json.JSONArray()
+            allMsgs.forEach { m ->
+                val obj = org.json.JSONObject()
+                obj.put("title", m.title)
+                obj.put("body", m.body)
+                obj.put("group", m.group)
+                obj.put("icon", m.icon)
+                obj.put("image", m.image)
+                obj.put("sound", m.sound)
+                obj.put("url", m.url)
+                obj.put("copy", m.copy)
+                obj.put("badge", m.badge)
+                obj.put("level", m.level)
+                obj.put("collapseKey", m.collapseKey)
+                obj.put("isArchive", m.isArchive)
+                obj.put("receivedAt", m.receivedAt)
+                msgsArr.put(obj)
+            }
+            root.put("messages", msgsArr)
+            onResult(root.toString(2))
+        }
+    }
+
+    fun importBackupJson(jsonString: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val root = org.json.JSONObject(jsonString)
+                val settingsObj = root.optJSONObject("settings")
+                if (settingsObj != null) {
+                    val dk = settingsObj.optString("deviceKey")
+                    if (dk.isNotEmpty()) prefs.setDeviceKey(dk)
+                    val sm = settingsObj.optString("serverMode")
+                    if (sm.isNotEmpty()) {
+                        runCatching { ServerMode.valueOf(sm) }.getOrNull()?.let { prefs.setServerMode(it) }
+                    }
+                    val cUrl = settingsObj.optString("customServerUrl")
+                    if (cUrl.isNotEmpty()) prefs.setCustomServerUrl(cUrl)
+                    val tm = settingsObj.optString("themeMode")
+                    if (tm.isNotEmpty()) {
+                        runCatching { ThemeMode.valueOf(tm) }.getOrNull()?.let { prefs.setThemeMode(it) }
+                    }
+                    if (settingsObj.has("autoCopy")) prefs.setAutoCopy(settingsObj.optBoolean("autoCopy", true))
+                    if (settingsObj.has("soundEnabled")) prefs.setSoundEnabled(settingsObj.optBoolean("soundEnabled", true))
+                    if (settingsObj.has("vibrationEnabled")) prefs.setVibrationEnabled(settingsObj.optBoolean("vibrationEnabled", true))
+                    if (settingsObj.has("e2eeEnabled")) prefs.setE2EEEnabled(settingsObj.optBoolean("e2eeEnabled", false))
+                    val ak = settingsObj.optString("aesKey")
+                    if (ak.isNotEmpty()) prefs.setAesKey(ak)
+                    val topicsArr = settingsObj.optJSONArray("subscribedTopics")
+                    if (topicsArr != null) {
+                        for (i in 0 until topicsArr.length()) {
+                            val t = topicsArr.optString(i)
+                            if (t.length >= 8) prefs.subscribeTopic(t)
+                        }
+                    }
+                }
+
+                val msgsArr = root.optJSONArray("messages")
+                var importedCount = 0
+                if (msgsArr != null && msgsArr.length() > 0) {
+                    val list = mutableListOf<PushMessage>()
+                    for (i in 0 until msgsArr.length()) {
+                        val o = msgsArr.optJSONObject(i) ?: continue
+                        list.add(
+                            PushMessage(
+                                title = o.optString("title", "Zhi"),
+                                body = o.optString("body", ""),
+                                group = o.optString("group", ""),
+                                icon = o.optString("icon", ""),
+                                image = o.optString("image", ""),
+                                sound = o.optString("sound", ""),
+                                url = o.optString("url", ""),
+                                copy = o.optString("copy", ""),
+                                badge = o.optInt("badge", 0),
+                                level = o.optString("level", "active"),
+                                collapseKey = o.optString("collapseKey", ""),
+                                isArchive = o.optBoolean("isArchive", true),
+                                receivedAt = o.optLong("receivedAt", System.currentTimeMillis())
+                            )
+                        )
+                    }
+                    dao.insertMessages(list)
+                    importedCount = list.size
+                }
+                syncToServer()
+                onResult(true, "成功恢复配置并导入 $importedCount 条消息")
+            } catch (e: Exception) {
+                onResult(false, "导入解析失败: ${e.message}")
+            }
         }
     }
 

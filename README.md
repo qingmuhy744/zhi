@@ -62,6 +62,7 @@
   - **荒原老鼠视觉体系 (Wild Squeak Rat)**：米白（白天）与深曜石黑（夜晚）双模自适应，高对比度排版与纯粹克制的呼吸感。
   - **多设备群发广播 (Topic Channels)**：支持多台手机订阅同一长随机 Secret 频道，一次推送全员响应，无需维护多设备 Token。
   - **状态去重折叠 (collapse_key)**：监控指标或构建进度更新时自动替换旧通知，拒绝通知栏刷屏。
+  - **通知栏 Webhook 交互按钮 (actions)**：支持通知栏附带自定义按钮（如 `[同意部署]`、`[拒绝]`），点击直接后台触发 Webhook 请求，无需打开 App。
   - **富媒体大图展开 (image)**：支持在通知栏中异步拉取并展开大图预览 (BigPictureStyle)。
   - **时效过期丢弃 (ttl)**：验证码与一次性告警可设置 TTL 秒数，手机脱机重连后自动废弃无效历史。
   - **分组筛选与搜索**：支持运维、日常、安全等自定义 Group 过滤与全文模糊检索。
@@ -93,7 +94,7 @@ zhi/
 │   ├── internal/push/               # FCM HTTP v1 OAuth2 推送器
 │   ├── internal/storage/            # 纯 Go SQLite 存储设备映射
 │   ├── Dockerfile                   # Alpine 极小镜像构建
-│   ├── docker-compose.yml           # 一键 Docker 部署配置
+│   ├── compose.yaml                 # 一键 Docker Compose 部署配置
 │   ├── config.example.yaml          # 配置文件模板
 │   └── zhi-server                   # 已编译完成的单文件二进制
 ├── docs/

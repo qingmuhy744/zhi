@@ -6,8 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -120,6 +123,40 @@ fun SettingsScreen(
     var topicInput by remember { mutableStateOf("") }
     var showRegenerateKeyDialog by remember { mutableStateOf(false) }
     var isTestingPing by remember { mutableStateOf(false) }
+
+    val exportFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.exportBackupJson { json ->
+                try {
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(json.toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(context, "备份文件已成功导出！", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "导出失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    val importFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val json = context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                if (!json.isNullOrBlank()) {
+                    viewModel.importBackupJson(json) { _, msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "读取备份文件失败: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -734,6 +771,131 @@ fun SettingsScreen(
                         Text(text = "跳转至系统设置调整免打扰及悬浮横幅", fontSize = 12.sp, color = Slate400)
                     }
                     Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp))
+                }
+
+                HorizontalDivider(color = Slate200, modifier = Modifier.padding(vertical = 12.dp))
+
+                // 电池优化白名单（兼顾后台高优先级 Data 唤醒与端到端解密/大图/按钮）
+                val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                val isIgnoringBatteryOptimizations = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            try {
+                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                context.startActivity(fallback)
+                            }
+                        }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isIgnoringBatteryOptimizations) "后台省电白名单 (已开启无限制 ✅)" else "开启后台省电无限制白名单 (推荐)",
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = if (isIgnoringBatteryOptimizations) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "允许后台唤醒以保障锁屏状态下正常解密 E2EE、加载大图、展示交互按钮与落盘归档",
+                            fontSize = 12.sp,
+                            color = Slate400
+                        )
+                    }
+                    Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 6. 数据备份与迁移 (Backup & Restore)
+        SectionTitle(icon = Icons.Outlined.Sync, title = "数据备份与迁移 (Backup & Restore)")
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "支持将设备 Key、服务器地址、E2EE 密钥、已订阅频道以及全部历史推送消息打包导出为 JSON，方便换机或跨设备恢复。",
+                    fontSize = 12.sp,
+                    color = Slate400,
+                    lineHeight = 16.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            exportFileLauncher.launch("zhi-backup-${System.currentTimeMillis() / 1000}.json")
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("导出 JSON 文件", fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = {
+                            importFileLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("从文件导入恢复", fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.exportBackupJson { json ->
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("Zhi Backup JSON", json))
+                                Toast.makeText(context, "已复制备份 JSON 到剪贴板", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("复制备份到剪贴板", fontSize = 12.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val text = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
+                            if (text.isNullOrBlank()) {
+                                Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
+                            } else {
+                                viewModel.importBackupJson(text) { _, msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("从剪贴板恢复", fontSize = 12.sp)
+                    }
                 }
             }
         }

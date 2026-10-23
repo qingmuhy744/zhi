@@ -248,6 +248,14 @@ func (h *ServerHandler) enrichFromQueryParams(c *gin.Context, req *model.PushReq
 	if top := c.Query("topic"); top != "" {
 		req.Topic = top
 	}
+	if act := c.Query("actions"); act != "" {
+		req.Actions = act
+	}
+	if sn := c.Query("system_notify"); sn != "" {
+		if s, err := strconv.Atoi(sn); err == nil {
+			req.SystemNotify = &s
+		}
+	}
 	if badgeStr := c.Query("badge"); badgeStr != "" {
 		if b, err := strconv.Atoi(badgeStr); err == nil {
 			req.Badge = b

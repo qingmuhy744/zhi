@@ -137,8 +137,10 @@ curl -X POST "https://push.qingmuhy.com/push" \
 | `group` / `category` | String | 通知分组。相同分组在 App 历史中支持分类筛选与渠道归类 | `生产环境`、`生活提醒` |
 | `image` | String | 大图 URL。通知栏下拉时展示 Big Picture 大图 | `https://example.com/snap.jpg` |
 | `collapse_key` | String | 折叠覆盖 Key。相同 Key 的新消息会自动覆盖替换旧通知（避免构建/告警刷屏） | `ci_build_42` |
+| `actions` | String | 通知栏交互 Webhook 按钮（最多 3 个）。支持简写 `同意:https://...|拒绝:https://...` 或 JSON 数组 `[{"title":"同意","url":"https://...","method":"POST"}]` | `同意部署:https://example.com/ok\|拒绝:https://example.com/no` |
 | `ttl` | Int | 消息在服务端的最大存活秒数。若设备离线超时重连，过期消息自动废弃 | `300` (5分钟) |
 | `topic` | String | 广播频道 Secret。向所有订阅了该 Secret 的设备全员推送（亦可直接在 URL 中代替 device_key） | `topic_x9k2m1` |
+| `system_notify` | Int | `0` (默认): 纯 Data 高优唤醒（后台支持 E2EE 解密、落盘、大图、按钮）；`1`: 附加系统托管通知块兜底 | `0` |
 | `copy` | String | 指定复制文本。若 App 开启「自动复制」，收到通知时会自动写入剪贴板；通知栏亦提供「复制内容」快捷按钮 | `668899` (验证码) |
 | `url` | String | 点击通知后自动跳转的网址或第三方 App URL Scheme | `https://github.com`、`weixin://` |
 | `level` | String | 通知时效级别：<br>• `active`: 常规通知 (默认)<br>• `timeSensitive`: 紧急/高时效通知，带悬浮横幅与红色标识<br>• `passive`: 静默低优先级通知 | `timeSensitive` |

@@ -250,22 +250,69 @@ fun MessagesScreen(
         )
     }
 
-    // Clear All Confirmation Dialog
+    // Rich Clear / Cleanup Options Dialog
     if (showClearConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showClearConfirmDialog = false },
-            title = { Text("清空所有消息记录？") },
-            text = { Text("该操作不可撤销，已存储的全部历史推送消息都将被删除。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.clearAllMessages()
-                        showClearConfirmDialog = false
+            title = { Text("消息清理选项") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "请选择清理范围（删除后不可恢复，建议先在「设置」中导出备份）：",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    if (selectedGroup != null) {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = {
+                                viewModel.clearMessagesByGroup(selectedGroup!!)
+                                showClearConfirmDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("仅清空当前分组「$selectedGroup」", color = MaterialTheme.colorScheme.primary)
+                        }
                     }
-                ) {
-                    Text("清空", color = RedDanger, fontWeight = FontWeight.Bold)
+
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = {
+                            viewModel.retainRecentMessages(100)
+                            showClearConfirmDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("仅保留最近 100 条消息", color = MaterialTheme.colorScheme.onSurface)
+                    }
+
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = {
+                            viewModel.retainRecentMessages(50)
+                            showClearConfirmDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("仅保留最近 50 条消息", color = MaterialTheme.colorScheme.onSurface)
+                    }
+
+                    androidx.compose.material3.Button(
+                        onClick = {
+                            viewModel.clearAllMessages()
+                            showClearConfirmDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = RedDanger)
+                    ) {
+                        Text("清空全部消息 (${messages.size} 条)", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
                 }
             },
+            confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showClearConfirmDialog = false }) {
                     Text("取消")

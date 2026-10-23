@@ -15,11 +15,13 @@ type PushRequest struct {
 	Sound       string `json:"sound,omitempty" form:"sound"`
 	URL         string `json:"url,omitempty" form:"url"`
 	Copy        string `json:"copy,omitempty" form:"copy"`
-	Badge       int    `json:"badge,omitempty" form:"badge"`
-	Level       string `json:"level,omitempty" form:"level"` // active, timeSensitive, passive
-	CollapseKey string `json:"collapse_key,omitempty" form:"collapse_key"`
-	TTL         *int   `json:"ttl,omitempty" form:"ttl"`                   // Time to live in seconds
-	IsArchive   *int   `json:"isArchive,omitempty" form:"isArchive"`
+	Badge        int    `json:"badge,omitempty" form:"badge"`
+	Level        string `json:"level,omitempty" form:"level"` // active, timeSensitive, passive
+	CollapseKey  string `json:"collapse_key,omitempty" form:"collapse_key"`
+	TTL          *int   `json:"ttl,omitempty" form:"ttl"`                   // Time to live in seconds
+	Actions      string `json:"actions,omitempty" form:"actions"`           // Webhook action buttons (e.g. "同意:https://...|拒绝:https://..." or JSON array)
+	SystemNotify *int   `json:"system_notify,omitempty" form:"system_notify"` // 1: attach FCM notification block; default 0: pure data-only high priority
+	IsArchive    *int   `json:"isArchive,omitempty" form:"isArchive"`
 	Ciphertext  string `json:"ciphertext,omitempty" form:"ciphertext"` // E2EE encrypted payload (Scheme C)
 	IV          string `json:"iv,omitempty" form:"iv"`                 // Optional custom IV
 }
