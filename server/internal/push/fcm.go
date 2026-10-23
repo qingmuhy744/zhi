@@ -97,8 +97,13 @@ func (p *FCMPusher) Send(ctx context.Context, fcmToken string, req *model.PushRe
 	}
 
 	if p.isMock {
-		log.Printf("[MOCK PUSH] Would send to FCM token [%s...]: Title='%s', Body='%s', Group='%s'",
-			fcmToken[:min(len(fcmToken), 10)], req.Title, req.Body, req.GetEffectiveGroup())
+		if req.Ciphertext != "" {
+			log.Printf("[MOCK PUSH - E2EE] Would send to FCM token [%s...]: Ciphertext='%s...' (Length=%d)",
+				fcmToken[:min(len(fcmToken), 10)], req.Ciphertext[:min(len(req.Ciphertext), 16)], len(req.Ciphertext))
+		} else {
+			log.Printf("[MOCK PUSH] Would send to FCM token [%s...]: Title='%s', Body='%s', Group='%s'",
+				fcmToken[:min(len(fcmToken), 10)], req.Title, req.Body, req.GetEffectiveGroup())
+		}
 		return nil
 	}
 
@@ -129,6 +134,12 @@ func (p *FCMPusher) Send(ctx context.Context, fcmToken string, req *model.PushRe
 	if req.IsArchive != nil {
 		dataPayload["isArchive"] = strconv.Itoa(*req.IsArchive)
 	}
+	if req.Ciphertext != "" {
+		dataPayload["ciphertext"] = req.Ciphertext
+	}
+	if req.IV != "" {
+		dataPayload["iv"] = req.IV
+	}
 
 	// Channel ID matching group or level
 	channelID := "zhi_default"
@@ -138,12 +149,21 @@ func (p *FCMPusher) Send(ctx context.Context, fcmToken string, req *model.PushRe
 		channelID = "zhi_group_" + req.GetEffectiveGroup()
 	}
 
+	notificationTitle := title
+	notificationBody := req.Body
+	if req.Ciphertext != "" {
+		if req.Title == "" {
+			notificationTitle = "Zhi"
+		}
+		notificationBody = "收到一条端到端加密消息"
+	}
+
 	fcmMsg := map[string]interface{}{
 		"message": map[string]interface{}{
 			"token": fcmToken,
 			"notification": map[string]string{
-				"title": title,
-				"body":  req.Body,
+				"title": notificationTitle,
+				"body":  notificationBody,
 			},
 			"data": dataPayload,
 			"android": map[string]interface{}{

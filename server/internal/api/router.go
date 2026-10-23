@@ -245,6 +245,12 @@ func (h *ServerHandler) enrichFromQueryParams(c *gin.Context, req *model.PushReq
 			req.IsArchive = &a
 		}
 	}
+	if ct := c.Query("ciphertext"); ct != "" {
+		req.Ciphertext = ct
+	}
+	if iv := c.Query("iv"); iv != "" {
+		req.IV = iv
+	}
 }
 
 func (h *ServerHandler) executePush(c *gin.Context, req *model.PushRequest) {
@@ -257,10 +263,10 @@ func (h *ServerHandler) executePush(c *gin.Context, req *model.PushRequest) {
 		return
 	}
 
-	if req.Body == "" && req.Title == "" {
+	if req.Body == "" && req.Title == "" && req.Ciphertext == "" {
 		c.JSON(http.StatusBadRequest, model.CommonResponse{
 			Code:      400,
-			Message:   "notification content (body or title) cannot be empty",
+			Message:   "notification content (body, title, or ciphertext) cannot be empty",
 			Timestamp: time.Now().Unix(),
 		})
 		return

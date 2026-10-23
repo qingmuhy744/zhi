@@ -9,6 +9,8 @@ import com.zhi.app.data.model.PushMessage
 import com.zhi.app.data.preferences.ServerMode
 import com.zhi.app.data.preferences.UserPreferences
 import com.zhi.app.data.remote.ServerApiClient
+import com.zhi.app.update.AppUpdateManager
+import com.zhi.app.update.UpdateInfo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,6 +28,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = db.messageDao()
     private val prefs = UserPreferences(application)
     private val apiClient = ServerApiClient()
+    private val updateManager = AppUpdateManager(application)
+
+    val currentVersionName = "0.1.0"
+
+    private val _updateInfo = MutableStateFlow<UpdateInfo?>(null)
+    val updateInfo: StateFlow<UpdateInfo?> = _updateInfo.asStateFlow()
+
+    private val _isCheckingUpdate = MutableStateFlow(false)
+    val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate.asStateFlow()
 
     // Preferences Flows
     val deviceKey: StateFlow<String> = prefs.deviceKeyFlow
@@ -54,6 +65,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val vibrationEnabled: StateFlow<Boolean> = prefs.vibrationEnabledFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val e2eeEnabled: StateFlow<Boolean> = prefs.e2eeEnabledFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val aesKey: StateFlow<String> = prefs.aesKeyFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     // UI state
     private val _selectedGroup = MutableStateFlow<String?>(null)
@@ -157,6 +174,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             prefs.setVibrationEnabled(enabled)
         }
+    }
+
+    fun setE2EEEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            prefs.setE2EEEnabled(enabled)
+        }
+    }
+
+    fun setAesKey(key: String) {
+        viewModelScope.launch {
+            prefs.setAesKey(key)
+        }
+    }
+
+    fun generateNewAesKey() {
+        viewModelScope.launch {
+            val newKey = com.zhi.app.util.CryptoUtils.generateRandomKey(32)
+            prefs.setAesKey(newKey)
+            prefs.setE2EEEnabled(true)
+        }
+    }
+
+    fun checkForAppUpdate(onResult: ((Boolean, String) -> Unit)? = null) {
+        viewModelScope.launch {
+            _isCheckingUpdate.value = true
+            val result = updateManager.checkForUpdate(currentVersionName)
+            _isCheckingUpdate.value = false
+            if (result.isSuccess) {
+                val info = result.getOrNull()
+                _updateInfo.value = info
+                if (info?.hasUpdate == true) {
+                    onResult?.invoke(true, "发现新版本: ${info.releaseTag}")
+                } else {
+                    onResult?.invoke(false, "已是最新版本 (v$currentVersionName)")
+                }
+            } else {
+                onResult?.invoke(false, result.exceptionOrNull()?.message ?: "检查更新失败")
+            }
+        }
+    }
+
+    fun openUpdateUrl(url: String) {
+        updateManager.openDownloadPage(url)
     }
 
     fun syncToServer(onComplete: ((Boolean, String) -> Unit)? = null) {

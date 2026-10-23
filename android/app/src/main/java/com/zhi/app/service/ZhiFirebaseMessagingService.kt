@@ -73,23 +73,59 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
 
         val data = remoteMessage.data
         val notification = remoteMessage.notification
-
-        val title = data["title"] ?: notification?.title ?: "Zhi"
-        val body = data["body"] ?: notification?.body ?: ""
-        val group = data["group"] ?: data["category"] ?: ""
-        val icon = data["icon"] ?: ""
-        val sound = data["sound"] ?: ""
-        val url = data["url"] ?: ""
-        val copy = data["copy"] ?: ""
-        val badge = data["badge"]?.toIntOrNull() ?: 0
-        val level = data["level"] ?: "active"
-        val isArchive = data["isArchive"] != "0"
-
         val prefs = UserPreferences(applicationContext)
 
-        // Handle auto-copy if enabled
-        if (copy.isNotEmpty()) {
-            serviceScope.launch {
+        serviceScope.launch {
+            var title = data["title"] ?: notification?.title ?: "Zhi"
+            var body = data["body"] ?: notification?.body ?: ""
+            var group = data["group"] ?: data["category"] ?: ""
+            var icon = data["icon"] ?: ""
+            var sound = data["sound"] ?: ""
+            var url = data["url"] ?: ""
+            var copy = data["copy"] ?: ""
+            var badge = data["badge"]?.toIntOrNull() ?: 0
+            var level = data["level"] ?: "active"
+            var isArchive = data["isArchive"] != "0"
+
+            // Scheme C: Check for ciphertext (End-to-End Encryption)
+            val ciphertext = data["ciphertext"]
+            if (!ciphertext.isNullOrEmpty()) {
+                val aesKey = prefs.aesKeyFlow.first()
+                if (aesKey.isEmpty()) {
+                    title = "收到端到端加密消息"
+                    body = "无法解密：未在 App 设置中配置 AES 密钥。"
+                    level = "timeSensitive"
+                } else {
+                    try {
+                        val decrypted = com.zhi.app.util.CryptoUtils.decrypt(ciphertext, aesKey, data["iv"])
+                        // Try parsing decrypted content as JSON
+                        try {
+                            val json = org.json.JSONObject(decrypted)
+                            if (json.has("title")) title = json.optString("title", title)
+                            if (json.has("body")) body = json.optString("body", body)
+                            if (json.has("group")) group = json.optString("group", group)
+                            if (json.has("icon")) icon = json.optString("icon", icon)
+                            if (json.has("sound")) sound = json.optString("sound", sound)
+                            if (json.has("url")) url = json.optString("url", url)
+                            if (json.has("copy")) copy = json.optString("copy", copy)
+                            if (json.has("badge")) badge = json.optInt("badge", badge)
+                            if (json.has("level")) level = json.optString("level", level)
+                            if (json.has("isArchive")) isArchive = json.optInt("isArchive", 1) != 0
+                        } catch (_: Exception) {
+                            // If not JSON, treat decrypted string as plain body
+                            body = decrypted
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "E2EE Decryption failed", e)
+                        title = "端到端消息解密失败"
+                        body = "密钥不匹配或数据损坏，无法解密该推送。"
+                        level = "timeSensitive"
+                    }
+                }
+            }
+
+            // Handle auto-copy if enabled
+            if (copy.isNotEmpty()) {
                 val autoCopy = prefs.autoCopyFlow.first()
                 if (autoCopy) {
                     Handler(Looper.getMainLooper()).post {
@@ -104,12 +140,10 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                     }
                 }
             }
-        }
 
-        // Save to Room Database
-        if (isArchive) {
-            val db = ZhiDatabase.getInstance(applicationContext)
-            serviceScope.launch {
+            // Save to Room Database
+            if (isArchive) {
+                val db = ZhiDatabase.getInstance(applicationContext)
                 val message = PushMessage(
                     title = title,
                     body = body,
@@ -125,10 +159,10 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                 )
                 db.messageDao().insertMessage(message)
             }
-        }
 
-        // Show system notification
-        showNotification(title, body, group, url, copy, level)
+            // Show system notification
+            showNotification(title, body, group, url, copy, level)
+        }
     }
 
     private fun showNotification(

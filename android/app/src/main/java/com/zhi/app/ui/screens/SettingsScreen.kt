@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Refresh
@@ -95,9 +96,15 @@ fun SettingsScreen(
     val autoCopy by viewModel.autoCopy.collectAsState()
     val soundEnabled by viewModel.soundEnabled.collectAsState()
     val vibrationEnabled by viewModel.vibrationEnabled.collectAsState()
+    val e2eeEnabled by viewModel.e2eeEnabled.collectAsState()
+    val aesKey by viewModel.aesKey.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
+    val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
+    val updateInfo by viewModel.updateInfo.collectAsState()
 
+    var showUpdateDialog by remember { mutableStateOf(false) }
     var customUrlInput by remember(customServerUrl) { mutableStateOf(customServerUrl) }
+    var aesKeyInput by remember(aesKey) { mutableStateOf(aesKey) }
     var showRegenerateKeyDialog by remember { mutableStateOf(false) }
     var isTestingPing by remember { mutableStateOf(false) }
 
@@ -387,7 +394,91 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 4. 通知偏好设置
+        // 4. 端到端加密 (E2EE) 配置
+        SectionTitle(icon = Icons.Outlined.Lock, title = "端到端加密 (E2EE - 方案 C)")
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                PreferenceSwitchRow(
+                    title = "开启端到端加密",
+                    subtitle = "公网网关盲目转发密文，零知识无法查看任何明文",
+                    checked = e2eeEnabled,
+                    onCheckedChange = { viewModel.setE2EEEnabled(it) }
+                )
+
+                if (e2eeEnabled) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = Slate200)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(text = "AES 加密密钥 (Key Passphrase):", fontSize = 12.sp, color = Slate400)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    OutlinedTextField(
+                        value = aesKeyInput,
+                        onValueChange = {
+                            aesKeyInput = it
+                            viewModel.setAesKey(it)
+                        },
+                        placeholder = { Text("输入或生成 16/32 位 AES 密钥") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.generateNewAesKey()
+                                Toast.makeText(context, "已生成新的 AES-256 密钥", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(imageVector = Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("生成新密钥", fontSize = 12.sp)
+                        }
+
+                        if (aesKey.isNotEmpty()) {
+                            Button(
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("Zhi AES Key", aesKey))
+                                    Toast.makeText(context, "已复制 AES 密钥", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = BluePrimary)
+                            ) {
+                                Icon(imageVector = Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("复制密钥", fontSize = 12.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "提示：发送端使用此密钥加密 JSON 后发送至 /push（携带 ciphertext 字段），手机收到后在本地秒级解密展示。",
+                        fontSize = 12.sp,
+                        color = Slate500,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 5. 通知偏好设置
         SectionTitle(icon = Icons.Outlined.Notifications, title = "通知首选项")
         Spacer(modifier = Modifier.height(8.dp))
         Card(
@@ -452,17 +543,110 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 5. 关于
-        Column(
+        // 6. 版本与 GitHub Release 更新检查
+        SectionTitle(icon = Icons.Outlined.Refresh, title = "关于与更新 (GitHub Releases)")
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Text(text = "Zhi (知 / 吱) v1.0.0", color = Slate500, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = "Android 版 Bark 兼容轻量推送服务", color = Slate400, fontSize = 12.sp)
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(text = "Zhi (知 / 吱)", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text(text = "当前版本: v${viewModel.currentVersionName}", fontSize = 12.sp, color = Slate400)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.checkForAppUpdate { hasUpdate, message ->
+                                if (hasUpdate) {
+                                    showUpdateDialog = true
+                                } else {
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        enabled = !isCheckingUpdate
+                    ) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("检查中...", fontSize = 12.sp)
+                        } else {
+                            Icon(imageVector = Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("检查新版本", fontSize = 12.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = Slate200)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/qingmuhy744/zhi"))
+                            context.startActivity(intent)
+                        }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(text = "GitHub 开源仓库", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        Text(text = "qingmuhy744/zhi", fontSize = 12.sp, color = Slate400)
+                    }
+                    Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp))
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+    }
+
+    // 新版本更新提示弹窗
+    if (showUpdateDialog && updateInfo != null) {
+        AlertDialog(
+            onDismissRequest = { showUpdateDialog = false },
+            title = { Text("发现新版本 ${updateInfo?.releaseTag} 🎉") },
+            text = {
+                Column {
+                    Text(text = "更新说明：", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = updateInfo?.releaseNotes ?: "修复了一些已知问题并提升了稳定性。",
+                        fontSize = 13.sp,
+                        color = Slate700,
+                        lineHeight = 18.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showUpdateDialog = false
+                        viewModel.openUpdateUrl(updateInfo?.apkUrl ?: updateInfo?.htmlUrl ?: "https://github.com/qingmuhy744/zhi/releases")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = BluePrimary)
+                ) {
+                    Text("前往下载更新")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUpdateDialog = false }) {
+                    Text("稍后再说")
+                }
+            }
+        )
     }
 
     // 重置 Device Key 确认对话框

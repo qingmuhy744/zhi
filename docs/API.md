@@ -82,7 +82,42 @@ curl -X POST "http://localhost:8080/YOUR_DEVICE_KEY" \
 
 ---
 
-## 3. 请求参数说明
+## 3. 端到端加密调用 (方案 C - E2EE 零知识转发)
+
+当借用公网 FCM 网关但传输高度敏感数据（如手机短信验证码、服务器内部报警、财务异动）时，可在手机 App 设置中开启「**端到端加密**」并设定 AES 密钥。发送端在本地加密为密文，公网网关看不到任何标题与正文。
+
+### 3.1 使用 Python 发送加密推送 (`scripts/encrypt_push.py`)
+```bash
+python3 scripts/encrypt_push.py \
+  --server "http://localhost:8080" \
+  --key "YOUR_DEVICE_KEY" \
+  --aes-key "YOUR_AES_KEY" \
+  --title "机密告警" \
+  --body "检测到生产环境主库高负载" \
+  --group "安全" \
+  --copy "top -n 1" \
+  --level "timeSensitive"
+```
+
+### 3.2 使用 Node.js 发送加密推送 (`scripts/encrypt_push.js`)
+零第三方 npm 依赖，内置 crypto 极速运行：
+```bash
+node scripts/encrypt_push.js "http://localhost:8080" "YOUR_DEVICE_KEY" "YOUR_AES_KEY" "告警标题" "私密告警正文"
+```
+
+### 3.3 cURL POST 密文直接调用
+```bash
+curl -X POST "http://localhost:8080/push" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "device_key": "YOUR_DEVICE_KEY",
+    "ciphertext": "DSL/IJ3DseXmvtCvyT+kyHbEFXKO9n8O..."
+  }'
+```
+
+---
+
+## 4. 请求参数说明
 
 所有参数均可在 URL Query 参数（GET/POST）或 JSON Body（POST）中传递：
 

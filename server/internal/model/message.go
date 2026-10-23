@@ -13,9 +13,11 @@ type PushRequest struct {
 	Sound     string `json:"sound,omitempty" form:"sound"`
 	URL       string `json:"url,omitempty" form:"url"`
 	Copy      string `json:"copy,omitempty" form:"copy"`
-	Badge     int    `json:"badge,omitempty" form:"badge"`
-	Level     string `json:"level,omitempty" form:"level"` // active, timeSensitive, passive
-	IsArchive *int   `json:"isArchive,omitempty" form:"isArchive"`
+	Badge      int    `json:"badge,omitempty" form:"badge"`
+	Level      string `json:"level,omitempty" form:"level"` // active, timeSensitive, passive
+	IsArchive  *int   `json:"isArchive,omitempty" form:"isArchive"`
+	Ciphertext string `json:"ciphertext,omitempty" form:"ciphertext"` // E2EE encrypted payload (Scheme C)
+	IV         string `json:"iv,omitempty" form:"iv"`                 // Optional custom IV
 }
 
 // GetEffectiveGroup returns Group or Category

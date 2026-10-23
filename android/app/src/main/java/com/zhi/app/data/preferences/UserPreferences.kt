@@ -32,6 +32,8 @@ class UserPreferences(private val context: Context) {
         val KEY_AUTO_COPY = booleanPreferencesKey("auto_copy")
         val KEY_SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
         val KEY_VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
+        val KEY_E2EE_ENABLED = booleanPreferencesKey("e2ee_enabled")
+        val KEY_AES_KEY = stringPreferencesKey("aes_key")
 
         const val DEFAULT_SERVER_URL = "http://10.0.2.2:8080"
     }
@@ -85,6 +87,14 @@ class UserPreferences(private val context: Context) {
 
     val vibrationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[KEY_VIBRATION_ENABLED] ?: true
+    }
+
+    val e2eeEnabledFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_E2EE_ENABLED] ?: false
+    }
+
+    val aesKeyFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_AES_KEY] ?: ""
     }
 
     suspend fun getOrCreateDeviceKey(): String {
@@ -152,6 +162,18 @@ class UserPreferences(private val context: Context) {
     suspend fun setVibrationEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[KEY_VIBRATION_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setE2EEEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_E2EE_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setAesKey(key: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_AES_KEY] = key.trim()
         }
     }
 
