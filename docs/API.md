@@ -44,6 +44,8 @@ GET /:device_key/:title/:body
 ```http
 GET /:device_key/:group/:title/:body
 ```
+
+服务端还提供 `GET /metrics` 返回 FCM 请求总数、当前并发、等待并发槽的次数、超时数、耗时汇总和按状态分类的计数。它是运维指标接口，建议只允许本机或监控网络访问。
 - **示例**:
   ```bash
   curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/运维/数据库提醒/备份完成"
