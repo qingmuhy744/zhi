@@ -1,0 +1,25 @@
+# Build artifacts
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE & Editor
+.idea/
+*.iml
+.vscode/
+local.properties
+
+# Server binaries & database
+server/zhi-server
+server/data/
+*.db
+*.db-journal
+
+# Secrets & Private credentials
+server/firebase-service-account.json

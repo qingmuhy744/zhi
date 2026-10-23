@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Zhi</string>
+    <string name="channel_default_name">常规通知</string>
+    <string name="channel_default_desc">默认推送通知渠道</string>
+    <string name="channel_urgent_name">紧急通知</string>
+    <string name="channel_urgent_desc">高优先级/时效性强通知</string>
+    <string name="action_copy">复制内容</string>
+    <string name="action_open_url">打开链接</string>
+</resources>

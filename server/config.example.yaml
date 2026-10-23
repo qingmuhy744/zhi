@@ -1,0 +1,7 @@
+# Zhi Push Server Configuration
+port: "8080"
+database_path: "data/zhi.db"
+# Path to your Firebase service account private key json file
+# Download from: Firebase Console -> Project Settings -> Service accounts -> Generate new private key
+fcm_service_account: "firebase-service-account.json"
+default_server_url: "http://localhost:8080"

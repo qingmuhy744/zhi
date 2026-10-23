@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  zhi-server:
+    build: .
+    container_name: zhi-server
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml
+      - ./firebase-service-account.json:/app/firebase-service-account.json
+    environment:
+      - PORT=8080
+      - DATABASE_PATH=/app/data/zhi.db
+      - FCM_SERVICE_ACCOUNT_FILE=/app/firebase-service-account.json
