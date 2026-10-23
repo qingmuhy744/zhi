@@ -80,7 +80,7 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   if (args.length < 5) {
     console.log("用法: node encrypt_push.js <serverUrl> <deviceKey> <aesKey> <title> <body>");
-    console.log("示例: node encrypt_push.js http://localhost:8080 my_key my_password '告警' '数据库离线'");
+    console.log("示例: node encrypt_push.js https://push.qingmuhy.com my_key my_password '告警' '数据库离线'");
     process.exit(1);
   }
 

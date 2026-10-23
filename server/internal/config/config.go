@@ -18,7 +18,7 @@ func LoadConfig(path string) (*Config, error) {
 		Port:              "8080",
 		DatabasePath:      "data/zhi.db",
 		FCMServiceAccount: "firebase-service-account.json",
-		DefaultServerURL:  "http://localhost:8080",
+		DefaultServerURL:  "https://push.qingmuhy.com",
 	}
 
 	if path != "" {

@@ -44,8 +44,8 @@
   - **方案 C：端到端加密 E2EE（防视奸）** —— 鼠鼠也有秘密。通过客户端与发送端对称密钥（AES），公网中转网关只负责运送乱码，连服务器都不知道你到底发了什么。零知识转发，谁也别想窥探下水道的私语。
 - ⚡ **无后台常驻的真正 FCM**：基于 Google Firebase Cloud Messaging HTTP v1 协议，利用系统级推送通道。无需后台死皮赖脸保活，不偷跑电量，告警却能在毫秒级划破寂静。
 - 🌐 **双服务器模式，来去自由**：
-  - **默认公共服务**：内置预配作者维护的 FCM 路由网关，开箱即用，免去折腾。
-  - **自建私有服务器**：App 设置里随时切成自己的域名（例如 `https://push.yourdomain.com`），数据全在自己手里，彻底告别服务关停跑路的焦虑。
+  - **默认公共服务 (`https://push.qingmuhy.com`)**：内置预配官方公共网关，开箱即用，免去服务器搭建与域名备案的折腾；配合方案 C（E2EE 端到端加密），公网网关零知识盲转发密文，安全与便利兼得。
+  - **自建私有服务器**：App 设置里随时切成自己的私有域名（如 `https://push.yourdomain.com` 或内网 IP），数据与通道全由自己掌控，彻底告别商业服务关停跑路的焦虑。
 - 📦 **轻到不能再轻的服务端**：纯 Go 编写 + 纯 Go 内嵌式 SQLite，编译出来的单一可执行文件只有 **18MB**，容器内存占用 **< 20MB**。哪怕是 512MB 内存的远古小鸡也能轻松拉起。
 - 🎨 **现代 Android 原生体验**：
   - 包名：`com.zhi.app`
@@ -91,23 +91,21 @@ zhi/
 
 ## 📡 API 调用速查 (Bark 全兼容)
 
-无需学习任何新协议，直接照搬你的 Bark 脚本：
+无需学习任何新协议，直接照搬你的 Bark 脚本（以公共网关 `https://push.qingmuhy.com` 为例，自建服务请替换为自建地址）：
 
-### 1. 极简 GET 调用
+### 1. 方案 B：极简明文透传 (GET / POST)
 ```bash
 # 1. 最简消息
-curl "http://localhost:8080/YOUR_DEVICE_KEY/下班了，快跑！"
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/下班了，快跑！"
 
 # 2. 带标题
-curl "http://localhost:8080/YOUR_DEVICE_KEY/生产告警/主库CPU突破95%"
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/生产告警/主库CPU突破95%"
 
 # 3. 携带分组、自动复制与时效级别
-curl "http://localhost:8080/YOUR_DEVICE_KEY/验证码/您的验证码是8899?group=安全&copy=8899&level=timeSensitive"
-```
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/验证码/您的验证码是8899?group=安全&copy=8899&level=timeSensitive"
 
-### 2. 标准 POST JSON 调用
-```bash
-curl -X POST "http://localhost:8080/push" \
+# 4. 标准 POST JSON
+curl -X POST "https://push.qingmuhy.com/push" \
   -H "Content-Type: application/json" \
   -d '{
     "device_key": "YOUR_DEVICE_KEY",
@@ -118,6 +116,21 @@ curl -X POST "http://localhost:8080/push" \
     "url": "https://example.com/log",
     "level": "timeSensitive"
   }'
+```
+
+### 2. 方案 C：端到端加密 E2EE (零知识防视奸)
+在手机 App 设置开启「端到端加密」并设置好 AES Key 后，公网网关盲目转发密文，手机本地秒级解密：
+```bash
+# 1. 使用配套 Python 工具加密推送
+python3 scripts/encrypt_push.py \
+  --server "https://push.qingmuhy.com" \
+  --key "YOUR_DEVICE_KEY" \
+  --aes-key "YOUR_AES_KEY" \
+  --title "机密告警" \
+  --body "财务数据库异动"
+
+# 2. 使用原生 Node.js 工具 (零外部依赖)
+node scripts/encrypt_push.js "https://push.qingmuhy.com" "YOUR_DEVICE_KEY" "YOUR_AES_KEY" "机密告警" "财务数据库异动"
 ```
 
 完整参数列表与 Python/Node.js/Bash 封装详见 [docs/API.md](docs/API.md)。

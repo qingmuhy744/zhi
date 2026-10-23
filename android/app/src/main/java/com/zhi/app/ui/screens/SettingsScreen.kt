@@ -211,8 +211,8 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Column {
-                        Text(text = "默认官方服务 (默认 FCM)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                        Text(text = "开箱即用，无需搭建服务器", fontSize = 12.sp, color = Slate400)
+                        Text(text = "默认公共服务 (https://push.qingmuhy.com)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text(text = "开箱即用，零配置支持端到端加密盲转发", fontSize = 12.sp, color = Slate400)
                     }
                 }
 

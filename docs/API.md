@@ -6,11 +6,19 @@ Zhi 服务端提供与 iOS Bark 完全兼容的 HTTP 推送接口，支持通过
 
 ## 1. 快速开始 (推送接口)
 
+> **服务网关地址**：
+> - **官方公共网关（开箱即用，免搭建）**：`https://push.qingmuhy.com`
+> - **自建私有服务**：`http://localhost:8080`（或您反向代理的独立域名）
+
 ### 1.1 最简 GET 请求
 ```http
 GET /:device_key/:body
 ```
-- **示例**:
+- **示例（公共网关）**:
+  ```bash
+  curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/这是一条测试消息"
+  ```
+- **示例（自建服务）**:
   ```bash
   curl "http://localhost:8080/YOUR_DEVICE_KEY/这是一条测试消息"
   ```
@@ -21,7 +29,7 @@ GET /:device_key/:title/:body
 ```
 - **示例**:
   ```bash
-  curl "http://localhost:8080/YOUR_DEVICE_KEY/服务器告警/CPU使用率超过90%"
+  curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/服务器告警/CPU使用率超过90%"
   ```
 
 ### 1.3 带分组的 GET 请求
@@ -30,7 +38,7 @@ GET /:device_key/:group/:title/:body
 ```
 - **示例**:
   ```bash
-  curl "http://localhost:8080/YOUR_DEVICE_KEY/运维/数据库提醒/备份完成"
+  curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/运维/数据库提醒/备份完成"
   ```
 
 ---
@@ -57,7 +65,7 @@ GET /:device_key/:group/:title/:body
 
 - **cURL 示例**:
 ```bash
-curl -X POST "http://localhost:8080/push" \
+curl -X POST "https://push.qingmuhy.com/push" \
   -H "Content-Type: application/json" \
   -d '{
     "device_key": "YOUR_DEVICE_KEY",
@@ -72,7 +80,7 @@ curl -X POST "http://localhost:8080/push" \
 ### 2.2 POST /:device_key
 支持直接在 URL 中指定 key，通过 JSON 或 Form-data 传递推送内容：
 ```bash
-curl -X POST "http://localhost:8080/YOUR_DEVICE_KEY" \
+curl -X POST "https://push.qingmuhy.com/YOUR_DEVICE_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "任务提醒",
@@ -84,12 +92,12 @@ curl -X POST "http://localhost:8080/YOUR_DEVICE_KEY" \
 
 ## 3. 端到端加密调用 (方案 C - E2EE 零知识转发)
 
-当借用公网 FCM 网关但传输高度敏感数据（如手机短信验证码、服务器内部报警、财务异动）时，可在手机 App 设置中开启「**端到端加密**」并设定 AES 密钥。发送端在本地加密为密文，公网网关看不到任何标题与正文。
+当借用公网 FCM 网关 (`https://push.qingmuhy.com`) 但传输高度敏感数据（如手机短信验证码、服务器内部报警、财务异动）时，可在手机 App 设置中开启「**端到端加密**」并设定 AES 密钥。发送端在本地加密为密文，公网网关看不到任何标题与正文。
 
 ### 3.1 使用 Python 发送加密推送 (`scripts/encrypt_push.py`)
 ```bash
 python3 scripts/encrypt_push.py \
-  --server "http://localhost:8080" \
+  --server "https://push.qingmuhy.com" \
   --key "YOUR_DEVICE_KEY" \
   --aes-key "YOUR_AES_KEY" \
   --title "机密告警" \
@@ -102,12 +110,12 @@ python3 scripts/encrypt_push.py \
 ### 3.2 使用 Node.js 发送加密推送 (`scripts/encrypt_push.js`)
 零第三方 npm 依赖，内置 crypto 极速运行：
 ```bash
-node scripts/encrypt_push.js "http://localhost:8080" "YOUR_DEVICE_KEY" "YOUR_AES_KEY" "告警标题" "私密告警正文"
+node scripts/encrypt_push.js "https://push.qingmuhy.com" "YOUR_DEVICE_KEY" "YOUR_AES_KEY" "告警标题" "私密告警正文"
 ```
 
 ### 3.3 cURL POST 密文直接调用
 ```bash
-curl -X POST "http://localhost:8080/push" \
+curl -X POST "https://push.qingmuhy.com/push" \
   -H "Content-Type: application/json" \
   -d '{
     "device_key": "YOUR_DEVICE_KEY",
@@ -209,7 +217,7 @@ def send_push(key, title, body, group=None, copy=None, url=None):
     if copy: payload["copy"] = copy
     if url: payload["url"] = url
 
-    r = requests.post("https://push.yourdomain.com/push", json=payload)
+    r = requests.post("https://push.qingmuhy.com/push", json=payload)
     return r.json()
 
 send_push("YOUR_DEVICE_KEY", "爬虫完成", "共抓取 1200 条数据", group="数据抓取")
@@ -220,7 +228,7 @@ send_push("YOUR_DEVICE_KEY", "爬虫完成", "共抓取 1200 条数据", group="
 import axios from 'axios';
 
 async function push(deviceKey: string, title: string, body: string) {
-  const res = await axios.post('https://push.yourdomain.com/push', {
+  const res = await axios.post('https://push.qingmuhy.com/push', {
     device_key: deviceKey,
     title,
     body,
@@ -234,7 +242,7 @@ async function push(deviceKey: string, title: string, body: string) {
 ```bash
 #!/usr/bin/env bash
 ZHI_KEY="YOUR_DEVICE_KEY"
-ZHI_SERVER="https://push.yourdomain.com"
+ZHI_SERVER="https://push.qingmuhy.com"
 
 # 抓取 IP 并推送
 MY_IP=$(curl -s ifconfig.me)

@@ -37,7 +37,7 @@ services:
 port: "8080"
 database_path: "data/zhi.db"
 fcm_service_account: "firebase-service-account.json"
-default_server_url: "https://push.yourdomain.com"
+default_server_url: "https://push.qingmuhy.com"  # 或您自建反向代理的独立域名
 ```
 
 ### 4. 放置 Firebase 密钥

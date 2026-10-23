@@ -35,7 +35,7 @@ class UserPreferences(private val context: Context) {
         val KEY_E2EE_ENABLED = booleanPreferencesKey("e2ee_enabled")
         val KEY_AES_KEY = stringPreferencesKey("aes_key")
 
-        const val DEFAULT_SERVER_URL = "http://10.0.2.2:8080"
+        const val DEFAULT_SERVER_URL = "https://push.qingmuhy.com"
     }
 
     val deviceKeyFlow: Flow<String> = context.dataStore.data.map { prefs ->

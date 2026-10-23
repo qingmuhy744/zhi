@@ -44,7 +44,7 @@ def encrypt_payload(data: dict, aes_key: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Zhi E2EE 密文推送工具")
-    parser.add_argument("--server", default="http://localhost:8080", help="Zhi 服务端地址")
+    parser.add_argument("--server", default="https://push.qingmuhy.com", help="Zhi 服务端地址 (默认官方公共网关)")
     parser.add_argument("--key", required=True, help="设备 Device Key")
     parser.add_argument("--aes-key", required=True, help="与手机端 App 相同的 AES 加密密钥")
     parser.add_argument("--title", default="端到端加密通知", help="通知标题")
