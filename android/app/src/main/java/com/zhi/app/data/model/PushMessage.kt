@@ -11,11 +11,13 @@ data class PushMessage(
     val body: String,
     val group: String = "",
     val icon: String = "",
+    val image: String = "",
     val sound: String = "",
     val url: String = "",
     val copy: String = "",
     val badge: Int = 0,
     val level: String = "active", // active, timeSensitive, passive
+    val collapseKey: String = "",
     val isArchive: Boolean = true,
     val receivedAt: Long = System.currentTimeMillis(),
     val isRead: Boolean = false

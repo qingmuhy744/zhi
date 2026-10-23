@@ -80,11 +80,13 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
             var body = data["body"] ?: notification?.body ?: ""
             var group = data["group"] ?: data["category"] ?: ""
             var icon = data["icon"] ?: ""
+            var image = data["image"] ?: notification?.imageUrl?.toString() ?: ""
             var sound = data["sound"] ?: ""
             var url = data["url"] ?: ""
             var copy = data["copy"] ?: ""
             var badge = data["badge"]?.toIntOrNull() ?: 0
             var level = data["level"] ?: "active"
+            var collapseKey = data["collapse_key"] ?: data["collapseKey"] ?: ""
             var isArchive = data["isArchive"] != "0"
 
             // Scheme C: Check for ciphertext (End-to-End Encryption)
@@ -149,11 +151,13 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                     body = body,
                     group = group,
                     icon = icon,
+                    image = image,
                     sound = sound,
                     url = url,
                     copy = copy,
                     badge = badge,
                     level = level,
+                    collapseKey = collapseKey,
                     isArchive = true,
                     receivedAt = System.currentTimeMillis()
                 )
@@ -161,7 +165,7 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
             }
 
             // Show system notification
-            showNotification(title, body, group, url, copy, level)
+            showNotification(title, body, group, url, copy, level, image, collapseKey)
         }
     }
 
@@ -171,10 +175,16 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
         group: String,
         url: String,
         copy: String,
-        level: String
+        level: String,
+        image: String = "",
+        collapseKey: String = ""
     ) {
         val channelId = getOrCreateChannel(group, level)
-        val notificationId = notificationIdCounter.incrementAndGet()
+        val notificationId = if (collapseKey.isNotEmpty()) {
+            collapseKey.hashCode()
+        } else {
+            notificationIdCounter.incrementAndGet()
+        }
 
         // Content intent when tapped
         val tapIntent = if (url.isNotEmpty()) {
@@ -198,9 +208,37 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(pendingTapIntent)
             .setAutoCancel(true)
+
+        // Asynchronously or directly load big picture image if URL provided
+        var hasBigPicture = false
+        if (image.isNotEmpty()) {
+            try {
+                val imageLoader = coil.ImageLoader(this)
+                val request = coil.request.ImageRequest.Builder(this)
+                    .data(image)
+                    .allowHardware(false)
+                    .build()
+                val result = kotlinx.coroutines.runBlocking { imageLoader.execute(request) }
+                val drawable = result.drawable
+                if (drawable is android.graphics.drawable.BitmapDrawable) {
+                    builder.setStyle(
+                        NotificationCompat.BigPictureStyle()
+                            .bigPicture(drawable.bitmap)
+                            .setSummaryText(body)
+                    )
+                    builder.setLargeIcon(drawable.bitmap)
+                    hasBigPicture = true
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to load notification big picture from $image: ${e.message}")
+            }
+        }
+
+        if (!hasBigPicture) {
+            builder.setStyle(NotificationCompat.BigTextStyle().bigText(body))
+        }
 
         // Set priority according to level
         if (level == "timeSensitive") {

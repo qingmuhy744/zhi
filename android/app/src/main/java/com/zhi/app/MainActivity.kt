@@ -10,6 +10,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import com.zhi.app.data.preferences.UserPreferences
@@ -50,7 +52,8 @@ class MainActivity : ComponentActivity() {
         handleOpenUrlIntent(intent)
 
         setContent {
-            ZhiTheme {
+            val themeMode by viewModel.themeMode.collectAsState()
+            ZhiTheme(themeMode = themeMode) {
                 MainScreen(viewModel = viewModel)
             }
         }

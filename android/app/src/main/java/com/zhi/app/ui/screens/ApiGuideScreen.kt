@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,11 +90,6 @@ fun ApiGuideScreen(
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
-        Text(
-            text = "支持全面兼容 Bark 协议的 HTTP GET / POST 请求",
-            color = Slate400,
-            fontSize = 13.sp
-        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -157,6 +153,10 @@ curl -X POST "$serverUrl/push" \
                 ParamRow("title", "通知标题（可选，缺省显示应用名）")
                 ParamRow("body", "通知正文（必填）")
                 ParamRow("group / category", "通知分组，用于分组折叠与筛选")
+                ParamRow("image", "大图 URL，通知栏下拉展示大图 (Big Picture)")
+                ParamRow("collapse_key", "折叠 Key，更新覆盖已有通知（避免刷屏）")
+                ParamRow("ttl", "消息存活秒数（如 ttl=300 表示 5分钟过期废弃）")
+                ParamRow("topic", "群发广播频道 Secret（所有订阅设备同时响铃）")
                 ParamRow("copy", "指定复制的内容，支持自动复制或通知栏按钮复制")
                 ParamRow("url", "点击通知时自动打开的网址或第三方 App URL Scheme")
                 ParamRow("level", "active (默认) / timeSensitive (紧急时效) / passive (静默)")
@@ -229,11 +229,14 @@ curl -X POST "$serverUrl/push" \
                             viewModel.sendLocalTestPush(testTitle, testBody, testGroup, testCopy, "")
                             Toast.makeText(context, "已生成本地测试推送，可切到「消息」查看！", Toast.LENGTH_SHORT).show()
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
                         Icon(imageVector = Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("本地测试", fontSize = 13.sp)
+                        Text("本地测试", fontSize = 13.sp, maxLines = 1)
                     }
 
                     // 服务端真实测试
@@ -246,15 +249,18 @@ curl -X POST "$serverUrl/push" \
                             }
                         },
                         enabled = !isSendingServerTest,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = BluePrimary)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         if (isSendingServerTest) {
                             CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         } else {
                             Icon(imageVector = Icons.Outlined.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("向服务端发推送", fontSize = 13.sp)
+                            Text("发送推送", fontSize = 13.sp, maxLines = 1)
                         }
                     }
                 }
@@ -277,7 +283,7 @@ private fun ApiCodeCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -304,14 +310,14 @@ private fun ApiCodeCard(
                     Icon(
                         imageVector = if (copied) Icons.Outlined.Check else Icons.Outlined.ContentCopy,
                         contentDescription = "复制",
-                        tint = if (copied) BluePrimary else Slate400,
+                        tint = if (copied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(6.dp))
-            Text(text = description, color = Slate400, fontSize = 12.sp)
+            Text(text = description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             Spacer(modifier = Modifier.height(10.dp))
 
             SelectionContainer {
@@ -319,12 +325,13 @@ private fun ApiCodeCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Slate900)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
                         .padding(12.dp)
                 ) {
                     Text(
                         text = code,
-                        color = Color(0xFFE2E8F0),
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
                         lineHeight = 18.sp
@@ -348,13 +355,13 @@ private fun ParamRow(param: String, desc: String) {
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
-            color = BluePrimary,
+            color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.weight(0.4f)
         )
         Text(
             text = desc,
             fontSize = 13.sp,
-            color = Slate700,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(0.6f)
         )
     }

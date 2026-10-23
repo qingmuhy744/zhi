@@ -59,10 +59,17 @@
 - 🎨 **现代 Android 原生体验**：
   - 包名：`com.zhi.app`
   - 技术栈：Kotlin + Jetpack Compose + Material 3 + Room 数据库 + Coroutines / Flow。
+  - **荒原老鼠视觉体系 (Wild Squeak Rat)**：米白（白天）与深曜石黑（夜晚）双模自适应，高对比度排版与纯粹克制的呼吸感。
+  - **多设备群发广播 (Topic Channels)**：支持多台手机订阅同一长随机 Secret 频道，一次推送全员响应，无需维护多设备 Token。
+  - **状态去重折叠 (collapse_key)**：监控指标或构建进度更新时自动替换旧通知，拒绝通知栏刷屏。
+  - **富媒体大图展开 (image)**：支持在通知栏中异步拉取并展开大图预览 (BigPictureStyle)。
+  - **时效过期丢弃 (ttl)**：验证码与一次性告警可设置 TTL 秒数，手机脱机重连后自动废弃无效历史。
   - **分组筛选与搜索**：支持运维、日常、安全等自定义 Group 过滤与全文模糊检索。
+  - **智能清理与保留**：支持按分组清理、保留最近 50/100 条记录或清空。
+  - **配置与记录备份导出**：支持通过 SAF 系统文件或剪贴板完整导出/恢复 JSON 备份。
   - **时效分级 (level)**：`active`（常规消息）、`timeSensitive`（紧急强提醒/悬浮横幅）、`passive`（静默打扰）。
-  - **自动与便捷复制 (copy)**：收到含 `copy` 字段的通知（如验证码、Git Commit、命令），可自动落入剪贴板，通知栏亦附带独立复制按钮。
-  - **一键跳转 (url)**：通知附带链接时，点击直接拉起浏览器或第三方 App Scheme。
+  - **自动与便捷复制 (copy)**：收到含 `copy` 字段的通知，自动落入剪贴板，通知栏附带独立 Action 按钮。
+  - **一键跳转 (url)**：通知附带链接时，点击通知或操作按钮直接拉起外部浏览器。
 
 ---
 
@@ -107,13 +114,22 @@ zhi/
 # 1. 最简消息
 curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/下班了，快跑！"
 
-# 2. 带标题
-curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/生产告警/主库CPU突破95%"
+# 2. 带标题与分组
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/生产告警/主库CPU突破95%?group=运维"
 
-# 3. 携带分组、自动复制与时效级别
-curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/验证码/您的验证码是8899?group=安全&copy=8899&level=timeSensitive"
+# 3. 带大图展示与自动复制 (富媒体 BigPicture)
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/抓拍告警/门口有人经过?image=https://images.unsplash.com/photo-1543852786-1cf6624b9987&copy=门前异常"
 
-# 4. 标准 POST JSON
+# 4. 状态折叠覆盖 (避免 50 条构建进度刷屏)
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/CI进度/构建中 60%?collapse_key=ci_build_42"
+
+# 5. 设置 5 分钟超时废弃 (TTL)
+curl "https://push.qingmuhy.com/YOUR_DEVICE_KEY/验证码/您的验证码是8899?copy=8899&ttl=300&level=timeSensitive"
+
+# 6. 多设备群发广播 (所有订阅该 topic 的设备同时响铃)
+curl "https://push.qingmuhy.com/YOUR_TOPIC_SECRET/全员通知/今晚十点机房维护，请提前备份数据！"
+
+# 7. 标准 POST JSON
 curl -X POST "https://push.qingmuhy.com/push" \
   -H "Content-Type: application/json" \
   -d '{
@@ -122,6 +138,9 @@ curl -X POST "https://push.qingmuhy.com/push" \
     "body": "跨国大文件搬迁完成，共耗时 42 秒",
     "group": "自动化",
     "copy": "scp done",
+    "image": "https://example.com/status.png",
+    "collapse_key": "sync_job",
+    "ttl": 3600,
     "url": "https://example.com/log",
     "level": "timeSensitive"
   }'

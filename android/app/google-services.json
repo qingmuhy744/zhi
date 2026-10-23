@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "123456789012",
-    "project_id": "zhi-push-app",
-    "storage_bucket": "zhi-push-app.appspot.com"
+    "project_number": "120548367448",
+    "project_id": "zhi-qingmuhy",
+    "storage_bucket": "zhi-qingmuhy.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789012:android:abcdef1234567890",
+        "mobilesdk_app_id": "1:120548367448:android:4e458f4c19a1bdff4dbe2d",
         "android_client_info": {
           "package_name": "com.zhi.app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDummyKeyForZhiAppCompilationOnly"
+          "current_key": "AIzaSyDTfPsD59SLikK6gxkhbmgKyW2YngMEabk"
         }
       ],
       "services": {

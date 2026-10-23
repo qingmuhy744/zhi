@@ -66,7 +66,7 @@ fun MainScreen(
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
+                tonalElevation = 0.dp
             ) {
                 navItems.forEachIndexed { index, item ->
                     val isSelected = selectedIndex == index
@@ -82,13 +82,13 @@ fun MainScreen(
                         label = {
                             Text(
                                 text = item.title,
-                                color = if (isSelected) BluePrimary else Slate400
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = BluePrimary,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
                             indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = Slate400
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
                 }

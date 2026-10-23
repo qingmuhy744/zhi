@@ -7,7 +7,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -20,11 +22,18 @@ enum class ServerMode {
     CUSTOM
 }
 
+enum class ThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK
+}
+
 class UserPreferences(private val context: Context) {
 
     companion object {
         val KEY_DEVICE_KEY = stringPreferencesKey("device_key")
         val KEY_SERVER_MODE = stringPreferencesKey("server_mode")
+        val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         val KEY_CUSTOM_SERVER_URL = stringPreferencesKey("custom_server_url")
         val KEY_FCM_TOKEN = stringPreferencesKey("fcm_token")
         val KEY_IS_REGISTERED = booleanPreferencesKey("is_registered")
@@ -34,8 +43,13 @@ class UserPreferences(private val context: Context) {
         val KEY_VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
         val KEY_E2EE_ENABLED = booleanPreferencesKey("e2ee_enabled")
         val KEY_AES_KEY = stringPreferencesKey("aes_key")
+        val KEY_SUBSCRIBED_TOPICS = stringSetPreferencesKey("subscribed_topics")
 
         const val DEFAULT_SERVER_URL = "https://push.qingmuhy.com"
+    }
+
+    val subscribedTopicsFlow: Flow<Set<String>> = context.dataStore.data.map { prefs ->
+        prefs[KEY_SUBSCRIBED_TOPICS] ?: emptySet()
     }
 
     val deviceKeyFlow: Flow<String> = context.dataStore.data.map { prefs ->
@@ -48,6 +62,15 @@ class UserPreferences(private val context: Context) {
             ServerMode.valueOf(mode)
         } catch (e: Exception) {
             ServerMode.DEFAULT
+        }
+    }
+
+    val themeModeFlow: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
+        val mode = prefs[KEY_THEME_MODE] ?: ThemeMode.SYSTEM.name
+        try {
+            ThemeMode.valueOf(mode)
+        } catch (e: Exception) {
+            ThemeMode.SYSTEM
         }
     }
 
@@ -125,6 +148,12 @@ class UserPreferences(private val context: Context) {
         }
     }
 
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_THEME_MODE] = mode.name
+        }
+    }
+
     suspend fun setCustomServerUrl(url: String) {
         context.dataStore.edit { prefs ->
             prefs[KEY_CUSTOM_SERVER_URL] = url.trim().removeSuffix("/")
@@ -175,6 +204,47 @@ class UserPreferences(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs[KEY_AES_KEY] = key.trim()
         }
+    }
+
+    suspend fun subscribeTopic(topic: String): Result<Unit> {
+        val cleanTopic = topic.trim()
+        if (cleanTopic.length < 8) {
+            return Result.failure(IllegalArgumentException("频道密钥长度至少需要 8 位字符"))
+        }
+        return try {
+            FirebaseMessaging.getInstance().subscribeToTopic(cleanTopic)
+            context.dataStore.edit { prefs ->
+                val current = prefs[KEY_SUBSCRIBED_TOPICS] ?: emptySet()
+                prefs[KEY_SUBSCRIBED_TOPICS] = current + cleanTopic
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun unsubscribeTopic(topic: String): Result<Unit> {
+        val cleanTopic = topic.trim()
+        return try {
+            FirebaseMessaging.getInstance().unsubscribeFromTopic(cleanTopic)
+            context.dataStore.edit { prefs ->
+                val current = prefs[KEY_SUBSCRIBED_TOPICS] ?: emptySet()
+                prefs[KEY_SUBSCRIBED_TOPICS] = current - cleanTopic
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    fun generateTopicSecret(): String {
+        val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+        val random = SecureRandom()
+        val sb = StringBuilder("topic_")
+        repeat(18) {
+            sb.append(chars[random.nextInt(chars.length)])
+        }
+        return sb.toString()
     }
 
     private fun generateDeviceKey(): String {

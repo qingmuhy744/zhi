@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.zhi.app.data.local.ZhiDatabase
 import com.zhi.app.data.model.PushMessage
 import com.zhi.app.data.preferences.ServerMode
+import com.zhi.app.data.preferences.ThemeMode
 import com.zhi.app.data.preferences.UserPreferences
 import com.zhi.app.data.remote.ServerApiClient
 import com.zhi.app.update.AppUpdateManager
@@ -45,6 +46,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val serverMode: StateFlow<ServerMode> = prefs.serverModeFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, ServerMode.DEFAULT)
 
+    val themeMode: StateFlow<ThemeMode> = prefs.themeModeFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
+
     val customServerUrl: StateFlow<String> = prefs.customServerUrlFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
@@ -71,6 +75,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val aesKey: StateFlow<String> = prefs.aesKeyFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    val subscribedTopics: StateFlow<Set<String>> = prefs.subscribedTopicsFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     // UI state
     private val _selectedGroup = MutableStateFlow<String?>(null)
@@ -144,6 +151,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            prefs.setThemeMode(mode)
+        }
+    }
+
     fun setCustomServerUrl(url: String) {
         viewModelScope.launch {
             prefs.setCustomServerUrl(url)
@@ -193,6 +206,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val newKey = com.zhi.app.util.CryptoUtils.generateRandomKey(32)
             prefs.setAesKey(newKey)
             prefs.setE2EEEnabled(true)
+        }
+    }
+
+    fun generateTopicSecret(): String {
+        return prefs.generateTopicSecret()
+    }
+
+    fun subscribeTopic(topic: String, onComplete: ((Boolean, String) -> Unit)? = null) {
+        viewModelScope.launch {
+            val result = prefs.subscribeTopic(topic)
+            if (result.isSuccess) {
+                onComplete?.invoke(true, "订阅群发频道成功: $topic")
+            } else {
+                onComplete?.invoke(false, result.exceptionOrNull()?.message ?: "订阅失败")
+            }
+        }
+    }
+
+    fun unsubscribeTopic(topic: String, onComplete: ((Boolean, String) -> Unit)? = null) {
+        viewModelScope.launch {
+            val result = prefs.unsubscribeTopic(topic)
+            if (result.isSuccess) {
+                onComplete?.invoke(true, "已退订群发频道: $topic")
+            } else {
+                onComplete?.invoke(false, result.exceptionOrNull()?.message ?: "退订失败")
+            }
         }
     }
 

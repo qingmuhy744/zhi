@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.zhi.app.data.model.PushMessage
 
-@Database(entities = [PushMessage::class], version = 1, exportSchema = false)
+@Database(entities = [PushMessage::class], version = 2, exportSchema = false)
 abstract class ZhiDatabase : RoomDatabase() {
 
     abstract fun messageDao(): MessageDao
