@@ -147,6 +147,19 @@ fun MessageCard(
                 overflow = TextOverflow.Ellipsis
             )
 
+            if (message.image.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                coil.compose.AsyncImage(
+                    model = message.image,
+                    contentDescription = "消息配图",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             // Action bar: Copy, Open URL, Delete

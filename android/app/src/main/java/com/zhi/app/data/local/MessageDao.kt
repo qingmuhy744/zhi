@@ -44,6 +44,9 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY receivedAt DESC LIMIT :keepCount)")
     suspend fun retainRecentMessages(keepCount: Int)
 
+    @Query("DELETE FROM messages WHERE receivedAt < :cutoffTimestamp")
+    suspend fun deleteMessagesOlderThan(cutoffTimestamp: Long)
+
     @Query("SELECT * FROM messages ORDER BY receivedAt ASC")
     suspend fun getAllMessagesList(): List<PushMessage>
 

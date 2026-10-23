@@ -156,6 +156,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun deleteMessagesOlderThanDays(days: Int) {
+        viewModelScope.launch {
+            val cutoff = System.currentTimeMillis() - days * 24L * 3600L * 1000L
+            dao.deleteMessagesOlderThan(cutoff)
+        }
+    }
+
     fun archiveFromSystemNotificationIntent(
         title: String,
         body: String,

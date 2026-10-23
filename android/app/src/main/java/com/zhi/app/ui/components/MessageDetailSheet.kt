@@ -157,6 +157,18 @@ fun MessageDetailSheet(
                 )
             }
 
+            if (message.image.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(14.dp))
+                coil.compose.AsyncImage(
+                    model = message.image,
+                    contentDescription = "消息大图",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.FillWidth
+                )
+            }
+
             // Metadata fields if present
             if (message.url.isNotEmpty() || message.copy.isNotEmpty() || message.sound.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(20.dp))

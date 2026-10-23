@@ -299,6 +299,28 @@ fun MessagesScreen(
                         Text("仅保留最近 50 条消息", color = MaterialTheme.colorScheme.onSurface)
                     }
 
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = {
+                            viewModel.deleteMessagesOlderThanDays(7)
+                            showClearConfirmDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("清理 7 天前的旧消息", color = MaterialTheme.colorScheme.onSurface)
+                    }
+
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = {
+                            viewModel.deleteMessagesOlderThanDays(30)
+                            showClearConfirmDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("清理 30 天前的旧消息", color = MaterialTheme.colorScheme.onSurface)
+                    }
+
                     androidx.compose.material3.Button(
                         onClick = {
                             viewModel.clearAllMessages()
