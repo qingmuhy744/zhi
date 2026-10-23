@@ -28,6 +28,8 @@ jobs:
   verify:
     name: Verify Tests & Workflows
     uses: ./.github/workflows/ci.yml
+    with:
+      upload-apk: false
 
   build-server:
     name: Build Multi-arch Server Binaries
@@ -117,7 +119,9 @@ jobs:
               cp "$apk" "artifacts/android/Zhi-${RELEASE_TAG}.apk"
             done
             if [ -n "$ANDROID_SIGNING_CERT_SHA256" ]; then
-              ACTUAL=$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "artifacts/android/Zhi-${RELEASE_TAG}.apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+              APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+              test -n "$APKSIGNER"
+              ACTUAL="$("$APKSIGNER" verify --print-certs "artifacts/android/Zhi-${RELEASE_TAG}.apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
               test "$ACTUAL" = "$ANDROID_SIGNING_CERT_SHA256"
               printf '%s\n' "$ACTUAL" > artifacts/android/android-signing-certificate.sha256
             fi
@@ -147,11 +151,22 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Download all artifacts
+      - name: Download server binaries
         uses: actions/download-artifact@v8
         with:
-          path: release-assets
-          merge-multiple: true
+          name: server-binaries
+          path: release-assets/server
+
+      - name: Download Android APK
+        uses: actions/download-artifact@v8
+        with:
+          name: android-apk
+          path: release-assets/android
+
+      - name: Collect release files
+        run: |
+          find release-assets/server release-assets/android -type f -exec mv {} release-assets/ \;
+          rmdir release-assets/server release-assets/android
 
       - name: Compute checksums
         working-directory: release-assets
@@ -181,6 +196,11 @@ jobs:
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | while IFS= read -r name; do
+              if [ -n "$name" ] && [ ! -e "release-assets/$name" ]; then
+                gh release delete-asset "$RELEASE_TAG" "$name" --repo "$GITHUB_REPOSITORY" --yes
+              fi
+            done
           else
             PRERELEASE=()
             if [[ "$RELEASE_TAG" == *-* ]]; then PRERELEASE+=(--prerelease); fi
