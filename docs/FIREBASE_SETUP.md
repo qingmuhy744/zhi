@@ -1,8 +1,10 @@
 # Firebase 项目配置指南 (FCM Setup Guide)
 
-Zhi 基于 Google Firebase Cloud Messaging (FCM HTTP v1) 协议实现无后台保活、极低功耗的高可靠实时推送。
+Zhi 通过 Firebase Cloud Messaging HTTP v1 下发推送。默认只发高优先级 Data 消息，由 App 解密、入库并自己画通知。请求里带 `system_notify=1` 时，才会额外附带一条系统托管通知。
 
-本文指导您如何创建 Firebase 项目并获取客户端和服务端所需的凭证。
+Data 消息要能在后台送达，手机需要允许系统拉起 App。设置页里可以申请忽略电池优化；一加、小米等系统上，App 被强行停止后还要加入自启动白名单。
+
+本文只讲如何创建 Firebase 项目，以及拿到客户端和服务端凭证。接口参数见 [API.md](API.md)。
 
 ---
 
