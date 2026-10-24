@@ -12,6 +12,7 @@ navigationCompose = "2.10.2"
 room = "2.8.5"
 firebaseBom = "33.7.0"
 coil = "2.7.0"
+commonmark = "0.30.1"
 okhttp = "5.5.0"
 datastore = "1.1.1"
 coroutines = "1.11.0"
@@ -45,6 +46,8 @@ firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging
 
 # Utilities
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+commonmark-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", version.ref = "commonmark" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }

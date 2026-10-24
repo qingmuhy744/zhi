@@ -112,11 +112,9 @@ fun SettingsScreen(
     val aesKey by viewModel.aesKey.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
-    val updateInfo by viewModel.updateInfo.collectAsState()
     val subscribedTopics by viewModel.subscribedTopics.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
 
-    var showUpdateDialog by remember { mutableStateOf(false) }
     var customUrlInput by remember(customServerUrl) { mutableStateOf(customServerUrl) }
     var aesKeyInput by remember(aesKey) { mutableStateOf(aesKey) }
     var topicInput by remember { mutableStateOf("") }
@@ -927,9 +925,7 @@ fun SettingsScreen(
                     OutlinedButton(
                         onClick = {
                             viewModel.checkForAppUpdate { hasUpdate, message ->
-                                if (hasUpdate) {
-                                    showUpdateDialog = true
-                                } else {
+                                if (!hasUpdate) {
                                     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -973,42 +969,6 @@ fun SettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
-    }
-
-    // 新版本更新提示弹窗
-    if (showUpdateDialog && updateInfo != null) {
-        AlertDialog(
-            onDismissRequest = { showUpdateDialog = false },
-            title = { Text("发现新版本 ${updateInfo?.releaseTag} 🎉") },
-            text = {
-                Column {
-                    Text(text = "更新说明：", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = updateInfo?.releaseNotes ?: "修复了一些已知问题并提升了稳定性。",
-                        fontSize = 13.sp,
-                        color = Slate700,
-                        lineHeight = 18.sp
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showUpdateDialog = false
-                        viewModel.openUpdateUrl(updateInfo?.apkUrl ?: updateInfo?.htmlUrl ?: "https://github.com/qingmuhy744/zhi/releases")
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = BluePrimary)
-                ) {
-                    Text("前往下载更新")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showUpdateDialog = false }) {
-                    Text("稍后再说")
-                }
-            }
-        )
     }
 
     // 重置 Device Key 确认对话框

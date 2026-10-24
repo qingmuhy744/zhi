@@ -15,8 +15,8 @@ android {
         applicationId = "com.zhi.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.1.3"
+        versionCode = 5
+        versionName = "0.1.4"
         buildConfigField("String", "DEFAULT_SERVER_URL", "\"https://push.qingmuhy.com\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -115,6 +115,8 @@ dependencies {
     // Utilities
     implementation(libs.coil.compose)
     implementation(libs.okhttp)
+    implementation(libs.commonmark)
+    implementation(libs.commonmark.tables)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
 }

@@ -44,6 +44,26 @@ type FCMPusher struct {
 	metrics     Metrics
 }
 
+// These IDs are part of the client/server notification contract. The Android
+// app creates the same channels before it receives a system-notification
+// fallback, so FCM can route the fallback into the user's configured channel
+// instead of creating its "Miscellaneous" fallback channel.
+const (
+	defaultNotificationChannelID = "zhi_channel_default_v4"
+	urgentNotificationChannelID  = "zhi_channel_urgent_v4"
+)
+
+func systemNotificationChannelID(req *model.PushRequest) string {
+	channelID := defaultNotificationChannelID
+	if req.Level == "timeSensitive" {
+		return urgentNotificationChannelID
+	}
+	if group := req.GetEffectiveGroup(); group != "" {
+		return "zhi_group_" + group
+	}
+	return channelID
+}
+
 type serviceAccountJSON struct {
 	ProjectID string `json:"project_id"`
 }
@@ -215,12 +235,7 @@ func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, r
 
 	// Optional fallback: if system_notify=1 is explicitly requested, attach FCM system notification block
 	if req.SystemNotify != nil && *req.SystemNotify == 1 {
-		channelID := "zhi_default"
-		if req.Level == "timeSensitive" {
-			channelID = "zhi_urgent"
-		} else if req.GetEffectiveGroup() != "" {
-			channelID = "zhi_group_" + req.GetEffectiveGroup()
-		}
+		channelID := systemNotificationChannelID(req)
 
 		notificationTitle := title
 		notificationBody := req.Body

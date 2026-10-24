@@ -25,6 +25,7 @@ class AppUpdateManager(private val context: Context) {
         const val GITHUB_REPO = "qingmuhy744/zhi"
         const val LATEST_RELEASE_API = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
         const val RELEASES_PAGE = "https://github.com/$GITHUB_REPO/releases"
+        private const val AUTOMATIC_CHECK_INTERVAL_MS = 12L * 60 * 60 * 1000
     }
 
     private val client = OkHttpClient.Builder()
@@ -32,7 +33,20 @@ class AppUpdateManager(private val context: Context) {
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
-    suspend fun checkForUpdate(currentVersionName: String): Result<UpdateInfo> = withContext(Dispatchers.IO) {
+    private val preferences = context.getSharedPreferences("app_updates", Context.MODE_PRIVATE)
+
+    suspend fun checkForUpdate(currentVersionName: String, manual: Boolean = true): Result<UpdateInfo> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        if (!manual && now - preferences.getLong("last_attempt", 0L) < AUTOMATIC_CHECK_INTERVAL_MS) {
+            val cached = preferences.getString("latest_release", null)
+            return@withContext if (cached.isNullOrBlank()) {
+                Result.success(noRelease(currentVersionName))
+            } else {
+                runCatching { parseRelease(cached, currentVersionName) }
+            }
+        }
+        preferences.edit().putLong("last_attempt", now).apply()
+
         try {
             val request = Request.Builder()
                 .url(LATEST_RELEASE_API)
@@ -43,15 +57,9 @@ class AppUpdateManager(private val context: Context) {
             client.newCall(request).execute().use { response ->
                 if (response.code == 404) {
                     // No releases published yet on GitHub
+                    preferences.edit().remove("latest_release").apply()
                     return@withContext Result.success(
-                        UpdateInfo(
-                            hasUpdate = false,
-                            latestVersion = currentVersionName,
-                            releaseTag = "v$currentVersionName",
-                            releaseNotes = "暂无公开发布版本。",
-                            apkUrl = RELEASES_PAGE,
-                            htmlUrl = RELEASES_PAGE
-                        )
+                        noRelease(currentVersionName)
                     )
                 }
 
@@ -60,41 +68,52 @@ class AppUpdateManager(private val context: Context) {
                 }
 
                 val jsonStr = response.body?.string() ?: ""
-                val root = JSONObject(jsonStr)
-
-                val tagName = root.optString("tag_name", "").removePrefix("v").trim()
-                val body = root.optString("body", "暂无更新说明。")
-                val htmlUrl = root.optString("html_url", RELEASES_PAGE)
-
-                var apkDownloadUrl = htmlUrl
-                val assets = root.optJSONArray("assets")
-                if (assets != null) {
-                    for (i in 0 until assets.length()) {
-                        val asset = assets.getJSONObject(i)
-                        val name = asset.optString("name", "")
-                        if (name.endsWith(".apk", ignoreCase = true)) {
-                            apkDownloadUrl = asset.optString("browser_download_url", htmlUrl)
-                            break
-                        }
-                    }
-                }
-
-                val hasUpdate = isNewerVersion(tagName, currentVersionName)
-
-                Result.success(
-                    UpdateInfo(
-                        hasUpdate = hasUpdate,
-                        latestVersion = tagName,
-                        releaseTag = root.optString("tag_name", "v$tagName"),
-                        releaseNotes = body,
-                        apkUrl = apkDownloadUrl,
-                        htmlUrl = htmlUrl
-                    )
-                )
+                if (jsonStr.isBlank()) return@withContext Result.failure(Exception("GitHub 返回内容为空"))
+                preferences.edit().putString("latest_release", jsonStr).apply()
+                Result.success(parseRelease(jsonStr, currentVersionName))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun noRelease(currentVersionName: String) = UpdateInfo(
+        hasUpdate = false,
+        latestVersion = currentVersionName,
+        releaseTag = "v$currentVersionName",
+        releaseNotes = "暂无公开发布版本。",
+        apkUrl = RELEASES_PAGE,
+        htmlUrl = RELEASES_PAGE
+    )
+
+    private fun parseRelease(jsonStr: String, currentVersionName: String): UpdateInfo {
+        val root = JSONObject(jsonStr)
+
+        val tagName = root.optString("tag_name", "").removePrefix("v").trim()
+        val body = root.optString("body", "暂无更新说明。")
+        val htmlUrl = root.optString("html_url", RELEASES_PAGE)
+
+        var apkDownloadUrl = htmlUrl
+        val assets = root.optJSONArray("assets")
+        if (assets != null) {
+            for (i in 0 until assets.length()) {
+                val asset = assets.getJSONObject(i)
+                val name = asset.optString("name", "")
+                if (name.endsWith(".apk", ignoreCase = true)) {
+                    apkDownloadUrl = asset.optString("browser_download_url", htmlUrl)
+                    break
+                }
+            }
+        }
+
+        return UpdateInfo(
+            hasUpdate = isNewerVersion(tagName, currentVersionName),
+            latestVersion = tagName,
+            releaseTag = root.optString("tag_name", "v$tagName"),
+            releaseNotes = body,
+            apkUrl = apkDownloadUrl,
+            htmlUrl = htmlUrl
+        )
     }
 
     fun openDownloadPage(url: String) {

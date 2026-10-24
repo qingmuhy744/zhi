@@ -59,7 +59,7 @@
   - **默认公共服务 (`https://push.qingmuhy.com`)**：内置预配官方公共网关，开箱即用，免去服务器搭建与域名备案的折腾；配合方案 C（E2EE 端到端加密），公网网关零知识盲转发密文，安全与便利兼得。直接打开根路径会返回一段中英双语纯文本，里面是 GitHub 和文档地址。
   - **自建私有服务器**：App 设置里随时切成自己的私有域名（如 `https://push.yourdomain.com` 或内网 IP），数据与通道全由自己掌控，彻底告别商业服务关停跑路的焦虑。
 - 📦 **轻到不能再轻的服务端**：纯 Go 编写 + 纯 Go 内嵌式 SQLite，编译出来的单一可执行文件只有 **18MB**，容器内存占用 **< 20MB**。哪怕是 512MB 内存的远古小鸡也能轻松拉起。
-- 🎨 **现代 Android 原生体验 (`v0.1.3`)**：
+- 🎨 **现代 Android 原生体验 (`v0.1.4`)**：
   - 包名：`com.zhi.app`
   - 技术栈：Kotlin + Jetpack Compose + Material 3 + Room 数据库 + Coroutines / Flow。
   - **荒原声波鼠图标 & 野弦 (WildString) 配色体系**：支持 **跟随系统 / 米白浅色 (`#F8F7F2`) / 曜石深色 (`#141513`)** 三档主题切换，搭配荒原暖橙 (`#D9532F`) 强调色。
@@ -203,7 +203,7 @@ cd server
 docker compose pull
 docker compose up -d
 ```
-镜像是 `ghcr.io/qingmuhy744/zhi-server:v0.1.3`。部署机器只拉取，不编译。数据、配置和 Firebase 密钥用相对路径挂在 `server/` 旁边。详细步骤和反代配置见 [docs/DEPLOY.md](docs/DEPLOY.md)。
+镜像是 `ghcr.io/qingmuhy744/zhi-server:v0.1.4`。部署机器只拉取，不编译。数据、配置和 Firebase 密钥用相对路径挂在 `server/` 旁边。详细步骤和反代配置见 [docs/DEPLOY.md](docs/DEPLOY.md)。
 
 ---
 
