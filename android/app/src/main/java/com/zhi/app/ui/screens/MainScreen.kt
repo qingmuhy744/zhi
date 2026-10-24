@@ -22,7 +22,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.zhi.app.ui.theme.BluePrimary
 import com.zhi.app.ui.theme.Slate400
@@ -41,6 +43,7 @@ fun MainScreen(
     modifier: Modifier = Modifier
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
+    val hapticFeedback = LocalHapticFeedback.current
 
     val navItems = listOf(
         NavItem(
@@ -72,7 +75,12 @@ fun MainScreen(
                     val isSelected = selectedIndex == index
                     NavigationBarItem(
                         selected = isSelected,
-                        onClick = { selectedIndex = index },
+                        onClick = {
+                            if (selectedIndex != index) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedIndex = index
+                            }
+                        },
                         icon = {
                             Icon(
                                 imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,

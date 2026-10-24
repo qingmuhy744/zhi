@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -18,11 +20,18 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
+const maxConcurrentFCMSends = 24
+
 // Pusher defines the interface for pushing notifications
 type Pusher interface {
 	Send(ctx context.Context, fcmToken string, req *model.PushRequest) error
 	SendTopic(ctx context.Context, topic string, req *model.PushRequest) error
 	IsConfigured() bool
+}
+
+// MetricsProvider exposes delivery metrics without expanding the Pusher API.
+type MetricsProvider interface {
+	Metrics() MetricsSnapshot
 }
 
 type FCMPusher struct {
@@ -31,6 +40,8 @@ type FCMPusher struct {
 	httpClient  *http.Client
 	isMock      bool
 	mu          sync.RWMutex
+	semaphore   chan struct{}
+	metrics     Metrics
 }
 
 type serviceAccountJSON struct {
@@ -48,6 +59,7 @@ func NewFCMPusher(serviceAccountPath string) (*FCMPusher, error) {
 		return &FCMPusher{
 			isMock:     true,
 			httpClient: &http.Client{Timeout: 10 * time.Second},
+			semaphore:  make(chan struct{}, maxConcurrentFCMSends),
 		}, nil
 	}
 
@@ -84,11 +96,16 @@ func NewFCMPusher(serviceAccountPath string) (*FCMPusher, error) {
 		tokenSource: ts,
 		httpClient:  &http.Client{Timeout: 15 * time.Second},
 		isMock:      false,
+		semaphore:   make(chan struct{}, maxConcurrentFCMSends),
 	}, nil
 }
 
 func (p *FCMPusher) IsConfigured() bool {
 	return !p.isMock && p.projectID != ""
+}
+
+func (p *FCMPusher) Metrics() MetricsSnapshot {
+	return p.metrics.Snapshot()
 }
 
 // Send sends notification to a single FCM device token
@@ -108,6 +125,23 @@ func (p *FCMPusher) SendTopic(ctx context.Context, topic string, req *model.Push
 }
 
 func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, req *model.PushRequest) error {
+	select {
+	case p.semaphore <- struct{}{}:
+	default:
+		p.metrics.concurrencyWaits.Add(1)
+		select {
+		case p.semaphore <- struct{}{}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	defer func() { <-p.semaphore }()
+
+	finish := p.metrics.begin()
+	status := "transport_error"
+	timedOut := false
+	defer func() { finish(status, timedOut) }()
+
 	if p.isMock {
 		if req.Ciphertext != "" {
 			log.Printf("[MOCK PUSH - E2EE] Would send to FCM %s [%s]: Ciphertext='%s...' (Length=%d)",
@@ -116,12 +150,15 @@ func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, r
 			log.Printf("[MOCK PUSH] Would send to FCM %s [%s]: Title='%s', Body='%s', Group='%s', Image='%s', TTL=%v",
 				targetKey, targetVal, req.Title, req.Body, req.GetEffectiveGroup(), req.Image, req.TTL)
 		}
+		status = "mock"
 		return nil
 	}
 
 	// Fetch OAuth2 Bearer token
 	token, err := p.tokenSource.Token()
 	if err != nil {
+		status = "auth_error"
+		timedOut = isTimeout(err)
 		return fmt.Errorf("failed to obtain FCM access token: %w", err)
 	}
 
@@ -234,17 +271,27 @@ func (p *FCMPusher) dispatch(ctx context.Context, targetKey, targetVal string, r
 
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		timedOut = isTimeout(err)
 		return fmt.Errorf("FCM request error: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBytes, _ := io.ReadAll(resp.Body)
+	status = strconv.Itoa(resp.StatusCode)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("FCM server responded with %d: %s", resp.StatusCode, string(respBytes))
 	}
 
 	log.Printf("[INFO] FCM push succeeded for %s [%s]", targetKey, targetVal)
 	return nil
+}
+
+func isTimeout(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 func min(a, b int) int {

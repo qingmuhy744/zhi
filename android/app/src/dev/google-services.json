@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "120548367448",
+    "project_id": "zhi-qingmuhy",
+    "storage_bucket": "zhi-qingmuhy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:120548367448:android:4e458f4c19a1bdff4dbe2d",
+        "android_client_info": {
+          "package_name": "com.zhi.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTfPsD59SLikK6gxkhbmgKyW2YngMEabk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:120548367448:android:b72a487c81e78bde4dbe2d",
+        "android_client_info": {
+          "package_name": "com.zhi.app.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTfPsD59SLikK6gxkhbmgKyW2YngMEabk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

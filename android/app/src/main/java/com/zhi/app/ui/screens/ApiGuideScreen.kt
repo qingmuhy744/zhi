@@ -151,19 +151,19 @@ curl -X POST "$serverUrl/push" \
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 ParamRow("title", "通知标题（可选，缺省显示应用名）")
-                ParamRow("body", "通知正文（必填）")
+                ParamRow("body", "通知正文（通常必填；也可仅传 title 或 ciphertext）")
                 ParamRow("group / category", "通知分组，用于分组折叠与筛选")
                 ParamRow("image", "大图 URL，通知栏下拉展示大图 (Big Picture)")
                 ParamRow("collapse_key", "折叠 Key，更新覆盖已有通知（避免刷屏）")
-                ParamRow("actions", "交互回调按钮，如 同意:https://...|拒绝:https://...")
-                ParamRow("ttl", "消息存活秒数（如 ttl=300 表示 5分钟过期废弃）")
+                ParamRow("actions", "最多 3 个 Webhook 按钮，如 同意:https://...|拒绝:https://...")
+                ParamRow("ttl", "交给 FCM 的存活秒数（如 ttl=300 表示离线超过 5 分钟不再投递）")
                 ParamRow("topic", "群发广播频道 Secret（所有订阅设备同时响铃）")
-                ParamRow("system_notify", "1: 附带系统级通知托管兜底；默认 0: 纯 Data 增强模式")
+                ParamRow("system_notify", "1: 附带系统托管通知兜底（标题/正文/图片）；默认 0: 纯 Data 模式")
                 ParamRow("copy", "指定复制的内容，支持自动复制或通知栏按钮复制")
                 ParamRow("url", "点击通知时自动打开的网址或第三方 App URL Scheme")
-                ParamRow("level", "active (默认) / timeSensitive (紧急时效) / passive (静默)")
-                ParamRow("sound", "通知铃声名称")
-                ParamRow("isArchive", "1: 存储到本地历史 (默认); 0: 不归档")
+                ParamRow("level", "active（常规）/ timeSensitive（紧急）/ passive（静默渠道）")
+                ParamRow("sound", "写入 Data 和历史记录；实际铃声由通知渠道决定")
+                ParamRow("isArchive", "1: 存储到本地历史（默认）；0: 纯 Data 模式下不归档")
             }
         }
 
@@ -346,25 +346,39 @@ private fun ApiCodeCard(
 
 @Composable
 private fun ParamRow(param: String, desc: String) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(vertical = 7.dp)
     ) {
-        Text(
-            text = param,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(0.4f)
-        )
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = param,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = desc,
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.6f)
+            lineHeight = 19.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(7.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
         )
     }
 }

@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.media.AudioAttributes
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -36,8 +37,9 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
         private const val TAG = "ZhiMessagingService"
         private val notificationIdCounter = AtomicInteger(1000)
 
-        const val CHANNEL_DEFAULT = "zhi_channel_default"
-        const val CHANNEL_URGENT = "zhi_channel_urgent"
+        const val CHANNEL_DEFAULT = "zhi_channel_default_v4"
+        const val CHANNEL_URGENT = "zhi_channel_urgent_v4"
+        const val CHANNEL_SILENT = "zhi_channel_silent_v4"
         const val CHANNEL_GROUP_PREFIX = "zhi_group_"
     }
 
@@ -225,7 +227,17 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
         collapseKey: String = "",
         actionsRaw: String = ""
     ) {
-        val channelId = getOrCreateChannel(group, level)
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val dndIsActive = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            notificationManager.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
+        val quietForDnd = dndIsActive && level != "timeSensitive"
+        val channelId = if (quietForDnd) {
+            // Keep non-urgent notifications visible in history without interrupting
+            // while the device is in DND. The app does not request policy access.
+            getOrCreateChannel("", "passive")
+        } else {
+            getOrCreateChannel(group, level)
+        }
         val notificationId = if (collapseKey.isNotEmpty()) {
             collapseKey.hashCode()
         } else {
@@ -255,6 +267,7 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
             .setContentTitle(title)
             .setContentText(body)
             .setContentIntent(pendingTapIntent)
+            .setSilent(level == "passive" || quietForDnd)
             .setAutoCancel(true)
 
         // Asynchronously or directly load big picture image if URL provided
@@ -293,7 +306,7 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
         } else if (level == "passive") {
             builder.setPriority(NotificationCompat.PRIORITY_LOW)
         } else {
-            builder.setPriority(NotificationCompat.PRIORITY_HIGH)
+            builder.setPriority(if (quietForDnd) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
         }
 
         // Add "复制内容" action button
@@ -361,21 +374,42 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         return when {
-            level == "timeSensitive" -> {
-                if (nm.getNotificationChannel(CHANNEL_URGENT) == null) {
+            level == "passive" -> {
+                if (nm.getNotificationChannel(CHANNEL_SILENT) == null) {
                     val channel = NotificationChannel(
-                        CHANNEL_URGENT,
-                        "紧急重要通知",
-                        NotificationManager.IMPORTANCE_HIGH
+                        CHANNEL_SILENT,
+                        getString(R.string.channel_silent_name),
+                        NotificationManager.IMPORTANCE_LOW
                     ).apply {
-                        description = "高优先级推送通知"
-                        enableVibration(true)
-                        enableLights(true)
-                        lightColor = Color.RED
+                        description = getString(R.string.channel_silent_desc)
+                        setSound(null, null)
+                        enableVibration(false)
+                        enableLights(false)
+                        setBypassDnd(false)
                     }
                     nm.createNotificationChannel(channel)
                 }
-                CHANNEL_URGENT
+                CHANNEL_SILENT
+            }
+            level == "timeSensitive" -> {
+                val urgentChannelId = CHANNEL_URGENT
+                val existing = nm.getNotificationChannel(urgentChannelId)
+                if (existing == null) {
+                    val channel = NotificationChannel(
+                        urgentChannelId,
+                        getString(R.string.channel_urgent_name),
+                        NotificationManager.IMPORTANCE_HIGH
+                    ).apply {
+                        description = getString(R.string.channel_urgent_desc)
+                        setZhiSound(R.raw.zhi_notification_urgent)
+                        enableVibration(true)
+                        enableLights(true)
+                        lightColor = Color.RED
+                        setBypassDnd(false)
+                    }
+                    nm.createNotificationChannel(channel)
+                }
+                urgentChannelId
             }
             group.isNotEmpty() -> {
                 val channelId = "$CHANNEL_GROUP_PREFIX$group"
@@ -386,7 +420,9 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                         NotificationManager.IMPORTANCE_HIGH
                     ).apply {
                         description = "来自分组 $group 的通知"
+                        setZhiSound(R.raw.zhi_notification)
                         enableVibration(true)
+                        setBypassDnd(false)
                     }
                     nm.createNotificationChannel(channel)
                 }
@@ -400,12 +436,23 @@ class ZhiFirebaseMessagingService : FirebaseMessagingService() {
                         NotificationManager.IMPORTANCE_HIGH
                     ).apply {
                         description = "默认推送通知"
+                        setZhiSound(R.raw.zhi_notification)
                         enableVibration(true)
+                        setBypassDnd(false)
                     }
                     nm.createNotificationChannel(channel)
                 }
                 CHANNEL_DEFAULT
             }
         }
+    }
+
+    private fun NotificationChannel.setZhiSound(resourceId: Int) {
+        val soundUri = Uri.parse("android.resource://$packageName/$resourceId")
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        setSound(soundUri, audioAttributes)
     }
 }

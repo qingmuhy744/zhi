@@ -5,7 +5,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
@@ -471,7 +470,7 @@ fun SettingsScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
@@ -685,7 +684,7 @@ fun SettingsScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(text = "界面主题模式 (Theme Mode)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
@@ -768,7 +767,7 @@ fun SettingsScreen(
                 ) {
                     Column {
                         Text(text = "系统通知权限与渠道设置", fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                        Text(text = "跳转至系统设置调整免打扰及悬浮横幅", fontSize = 12.sp, color = Slate400)
+                        Text(text = "跳转至系统设置调整通知渠道、声音、振动与横幅", fontSize = 12.sp, color = Slate400)
                     }
                     Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp))
                 }
@@ -842,9 +841,10 @@ fun SettingsScreen(
                             exportFileLauncher.launch("zhi-backup-${System.currentTimeMillis() / 1000}.json")
                         },
                         modifier = Modifier.weight(1f),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("导出 JSON 文件", fontSize = 12.sp)
+                        Text("导出 JSON 文件", fontSize = 12.sp, maxLines = 1, softWrap = false)
                     }
 
                     Button(
@@ -852,10 +852,11 @@ fun SettingsScreen(
                             importFileLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
                         },
                         modifier = Modifier.weight(1f),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("从文件导入恢复", fontSize = 12.sp)
+                        Text("从文件导入恢复", fontSize = 12.sp, maxLines = 1, softWrap = false)
                     }
                 }
 
@@ -874,9 +875,10 @@ fun SettingsScreen(
                             }
                         },
                         modifier = Modifier.weight(1f),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("复制备份到剪贴板", fontSize = 12.sp)
+                        Text("复制备份到剪贴板", fontSize = 12.sp, maxLines = 1, softWrap = false)
                     }
 
                     OutlinedButton(
@@ -892,9 +894,10 @@ fun SettingsScreen(
                             }
                         },
                         modifier = Modifier.weight(1f),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("从剪贴板恢复", fontSize = 12.sp)
+                        Text("从剪贴板恢复", fontSize = 12.sp, maxLines = 1, softWrap = false)
                     }
                 }
             }

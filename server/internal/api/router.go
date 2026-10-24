@@ -44,6 +44,7 @@ func SetupRouter(h *ServerHandler) *gin.Engine {
 	r.GET("/", handleIndex)
 	r.GET("/ping", h.handlePing)
 	r.GET("/info", h.handleInfo)
+	r.GET("/metrics", h.handleMetrics)
 	r.POST("/register", h.handleRegister)
 
 	// Push endpoints (Standard & Bark compatibility)
@@ -59,6 +60,14 @@ func SetupRouter(h *ServerHandler) *gin.Engine {
 	r.GET("/:key/:param1/:param2/:param3", h.handleKeyGet3)
 
 	return r
+}
+
+func (h *ServerHandler) handleMetrics(c *gin.Context) {
+	if provider, ok := h.pusher.(push.MetricsProvider); ok {
+		c.JSON(http.StatusOK, provider.Metrics())
+		return
+	}
+	c.JSON(http.StatusOK, push.MetricsSnapshot{StatusCounts: map[string]uint64{}})
 }
 
 // indexBody is the fixed plain-text page for GET /. No HTML and no JSON.
