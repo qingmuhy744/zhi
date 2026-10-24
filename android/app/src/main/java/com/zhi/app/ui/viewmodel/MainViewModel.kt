@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhi.app.BuildConfig
 import com.zhi.app.data.local.ZhiDatabase
 import com.zhi.app.data.model.PushMessage
 import com.zhi.app.data.preferences.ServerMode
@@ -31,13 +32,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val apiClient = ServerApiClient()
     private val updateManager = AppUpdateManager(application)
 
-    val currentVersionName = "0.1.1"
+    val currentVersionName = BuildConfig.VERSION_NAME
 
     private val _updateInfo = MutableStateFlow<UpdateInfo?>(null)
     val updateInfo: StateFlow<UpdateInfo?> = _updateInfo.asStateFlow()
 
     private val _isCheckingUpdate = MutableStateFlow(false)
     val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate.asStateFlow()
+
+    init {
+        // Match the WildString updater: stable builds check quietly on launch,
+        // while debug/dev builds stay isolated from the production release feed.
+        if (!BuildConfig.DEBUG) {
+            checkForAppUpdate(manual = false)
+        }
+    }
 
     // Preferences Flows
     val deviceKey: StateFlow<String> = prefs.deviceKeyFlow
@@ -426,10 +435,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun checkForAppUpdate(onResult: ((Boolean, String) -> Unit)? = null) {
+    fun checkForAppUpdate(
+        manual: Boolean = true,
+        onResult: ((Boolean, String) -> Unit)? = null
+    ) {
         viewModelScope.launch {
             _isCheckingUpdate.value = true
-            val result = updateManager.checkForUpdate(currentVersionName)
+            val result = updateManager.checkForUpdate(currentVersionName, manual)
             _isCheckingUpdate.value = false
             if (result.isSuccess) {
                 val info = result.getOrNull()
@@ -440,7 +452,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     onResult?.invoke(false, "已是最新版本 (v$currentVersionName)")
                 }
             } else {
-                onResult?.invoke(false, result.exceptionOrNull()?.message ?: "检查更新失败")
+                if (manual) {
+                    onResult?.invoke(false, result.exceptionOrNull()?.message ?: "检查更新失败")
+                }
             }
         }
     }

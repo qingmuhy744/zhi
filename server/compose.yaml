@@ -1,6 +1,6 @@
 services:
   zhi-server:
-    image: ghcr.io/qingmuhy744/zhi-server:v0.1.2
+    image: ghcr.io/qingmuhy744/zhi-server:v0.1.4
     pull_policy: always
     container_name: zhi-server
     restart: unless-stopped

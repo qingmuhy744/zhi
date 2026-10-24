@@ -16,7 +16,11 @@ class ZhiApp : Application() {
         const val NOTIFICATION_CHANNELS_PREFS = "notification_channels"
         // Recreate channels after removing the app-level DND policy permission so
         // channels created by older builds cannot retain bypassDnd=true.
-        const val NOTIFICATION_CHANNELS_VERSION = 7
+        const val NOTIFICATION_CHANNELS_VERSION = 8
+        // Firebase Messaging creates this channel when a system notification
+        // references a channel that does not exist yet. Remove it after the
+        // channel IDs are aligned with the server.
+        const val LEGACY_FCM_FALLBACK_CHANNEL = "fcm_fallback_notification_channel"
         const val LEGACY_DEFAULT_CHANNEL = "zhi_channel_default"
         const val LEGACY_URGENT_CHANNEL = "zhi_channel_urgent"
         const val LEGACY_SILENT_CHANNEL = "zhi_channel_silent"
@@ -94,7 +98,8 @@ class ZhiApp : Application() {
 
         nm.notificationChannels
             .filter { channel ->
-                channel.id == LEGACY_URGENT_DND_CHANNEL ||
+                channel.id == LEGACY_FCM_FALLBACK_CHANNEL ||
+                    channel.id == LEGACY_URGENT_DND_CHANNEL ||
                     channel.id == LEGACY_DEFAULT_CHANNEL ||
                     channel.id == LEGACY_URGENT_CHANNEL ||
                     channel.id == LEGACY_SILENT_CHANNEL ||

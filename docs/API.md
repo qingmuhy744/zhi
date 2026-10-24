@@ -205,7 +205,7 @@ Data 载荷上限是 FCM 的 4KB。图片、长日志不要塞进正文，图片
 
 频道名没有单独的发送密钥。知道名字的人就能向该频道发推送，所以要用 App 生成的长随机名，不要用 `server-error` 这类明文。
 
-`system_notify=1` 时，FCM 通知块使用的渠道 ID 是 `zhi_urgent`、`zhi_group_分组名` 或 `zhi_default`。App 自己创建的常规和紧急渠道 ID 是 `zhi_channel_default`、`zhi_channel_urgent`，只有分组前缀 `zhi_group_` 相同。兜底弹窗因此不一定落进 App 里已经建好的渠道。默认的纯 Data 消息不受这个差异影响。
+`system_notify=1` 时，FCM 通知块使用的渠道 ID 与 App 保持一致：常规为 `zhi_channel_default_v4`，紧急为 `zhi_channel_urgent_v4`，分组为 `zhi_group_分组名`。App Manifest 同时声明了常规频道作为 FCM 默认频道，避免频道尚未创建时落入系统的 `Miscellaneous` 兜底频道。默认的纯 Data 消息不经过 FCM 系统托管通知路径。
 
 ---
 
