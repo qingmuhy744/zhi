@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.firebase.messaging.FirebaseMessaging
+import com.zhi.app.BuildConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -45,7 +46,7 @@ class UserPreferences(private val context: Context) {
         val KEY_AES_KEY = stringPreferencesKey("aes_key")
         val KEY_SUBSCRIBED_TOPICS = stringSetPreferencesKey("subscribed_topics")
 
-        const val DEFAULT_SERVER_URL = "https://push.qingmuhy.com"
+        val DEFAULT_SERVER_URL: String = BuildConfig.DEFAULT_SERVER_URL
     }
 
     val subscribedTopicsFlow: Flow<Set<String>> = context.dataStore.data.map { prefs ->

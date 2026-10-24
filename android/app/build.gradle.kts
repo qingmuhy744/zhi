@@ -15,8 +15,9 @@ android {
         applicationId = "com.zhi.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.1.3"
+        buildConfigField("String", "DEFAULT_SERVER_URL", "\"https://push.qingmuhy.com\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -49,6 +50,15 @@ android {
         debug {
             applicationIdSuffix = ""
         }
+
+        // Development build: a separate package, Firebase client, app label and server.
+        // The existing debug/release variants remain the production com.zhi.app builds.
+        create("dev") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            buildConfigField("String", "DEFAULT_SERVER_URL", "\"https://push-dev.qingmuhy.com\"")
+        }
     }
 
     compileOptions {
@@ -58,6 +68,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -76,6 +87,7 @@ kotlin {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     // play-services-basement brings Fragment 1.1.0. Release lint rejects Activity Result below 1.3.

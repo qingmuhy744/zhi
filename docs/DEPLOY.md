@@ -6,7 +6,7 @@ Zhi 服务端基于 Go 语言编写，采用纯 Go 内嵌式 SQLite，编译为�
 
 ## 方式一：Docker Compose 拉取镜像 (推荐)
 
-部署机器不编译。发布工作流把 `server/` 打成多架构镜像，推到 GHCR。当前版本是 `ghcr.io/qingmuhy744/zhi-server:v0.1.2`，同一版本还有不带 `v` 的 `0.1.2`，没有预发布号的标签同时是 `latest`。镜像里只有程序，没有数据库，也没有 Firebase 密钥。
+部署机器不编译。发布工作流把 `server/` 打成多架构镜像，推到 GHCR。当前版本是 `ghcr.io/qingmuhy744/zhi-server:v0.1.3`，同一版本还有不带 `v` 的 `0.1.3`，没有预发布号的标签同时是 `latest`。镜像里只有程序，没有数据库，也没有 Firebase 密钥。
 
 ### 1. 准备一个目录
 
@@ -25,7 +25,7 @@ zhi/
 ```yaml
 services:
   zhi-server:
-    image: ghcr.io/qingmuhy744/zhi-server:v0.1.2
+    image: ghcr.io/qingmuhy744/zhi-server:v0.1.3
     pull_policy: always
     container_name: zhi-server
     restart: unless-stopped
