@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # The runtime image contains only Alpine, CA certificates, tzdata, and the compiled binary.
 # Go stays in the builder stage. Database, config, and the Firebase key are mounted in.
-FROM golang:1.26-alpine AS builder
+FROM golang:1.27-alpine AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
