@@ -13,7 +13,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o zhi-server .
 
-FROM alpine:3.20
+FROM alpine:3.24
 
 WORKDIR /app
 RUN --mount=type=cache,target=/var/cache/apk \
